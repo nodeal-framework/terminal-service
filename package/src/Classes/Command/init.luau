@@ -1,0 +1,172 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+local Command = {}
+Command.__index = Command
+
+function Command.new(config: table)
+	local self = setmetatable({}, Command)
+
+	self.Name = config.Name
+	self.Aliases = config.Aliases or {}
+	self.Description = config.Description or ""
+	self.Permission = config.Permission
+	self.Args = config.Args or {}
+	self.Run = config.Run
+
+	return self
+end
+
+function Command:Execute(context, rawArgs: {string}, terminalService)
+	local validatedArgs = {}
+
+	for idx, argSpec in self.Args do
+		local rawVal = rawArgs[idx]
+
+		if rawVal == nil and context.Input ~= nil and context.Input ~= "" then
+			local argType = argSpec.Type or argSpec.type
+			if type(argType) == "string" then
+				for tName in string.gmatch(argType, "[^|%s]+") do
+					if tName == "Player" then
+						rawVal = context.Input
+						break
+					end
+				end
+			end
+		end
+
+		local argName = argSpec.Name or argSpec.name
+		local argType = argSpec.Type or argSpec.type
+		if type(argType) == "function" then
+			argType = argType(rawArgs) or "string"
+		end
+		local argDesc = argSpec.Description or argSpec.description
+
+		-- If this is the last argument, consume all remaining tokens joined by spaces
+		if idx == #self.Args and rawVal ~= nil then
+			local remaining = {}
+			for i = idx, #rawArgs do
+				table.insert(remaining, rawArgs[i])
+			end
+			rawVal = table.concat(remaining, " ")
+		end
+
+		if rawVal == nil then
+			if argSpec.Default ~= nil then
+				table.insert(validatedArgs, argSpec.Default)
+			elseif argSpec.Optional or argSpec.optional then
+				table.insert(validatedArgs, nil)
+			else
+				context:Error(`Missing argument '{argName}' ({argDesc or ""})`)
+				return
+			end
+		else
+			local types = string.split(string.gsub(argType, "%s+", ""), "|")
+			local validParser = nil
+			local lastErr = nil
+			local val = nil
+
+			for _, tName in ipairs(types) do
+				local typeParser = terminalService:GetType(tName)
+				if typeParser then
+					local success, err = typeParser.Validate(rawVal, context.Executor, terminalService, argSpec)
+					if success then
+						validParser = typeParser
+						val = typeParser.Transform(rawVal, context.Executor, terminalService, argSpec)
+						break
+					else
+						lastErr = err
+					end
+				else
+					lastErr = `Unknown argument type '{tName}'`
+				end
+			end
+
+			if not validParser then
+				context:Error(`Invalid value for '{argName}': {lastErr or "validation failed"}`)
+				return
+			end
+
+			table.insert(validatedArgs, val)
+		end
+	end
+
+	local multiArgIndex = nil
+	local multiValues = nil
+
+	for i, val in ipairs(validatedArgs) do
+		if type(val) == "table" and val.__isMultiValue then
+			if multiArgIndex then
+				context:Error("Cannot use multiple multi-value arguments in the same command.")
+				return
+			end
+			multiArgIndex = i
+			multiValues = val.Values
+		end
+	end
+
+	if multiArgIndex then
+		local combinedOutputs = {}
+		local hasErrors = false
+		for _, v in ipairs(multiValues) do
+			validatedArgs[multiArgIndex] = v
+			local results = table.pack(pcall(function()
+				return self.Run(context, table.unpack(validatedArgs))
+			end))
+
+			local status = results[1]
+			if not status then
+				hasErrors = true
+				table.insert(combinedOutputs, `[Error]: {tostring(results[2])}`)
+			else
+				local outputs = {}
+				for j = 2, results.n do
+					if results[j] ~= nil then table.insert(outputs, tostring(results[j])) end
+				end
+				if #outputs > 0 then
+					table.insert(combinedOutputs, table.concat(outputs, " "))
+				end
+			end
+		end
+
+		if #combinedOutputs > 0 then
+			if hasErrors then
+				context:Error(table.concat(combinedOutputs, "\n"))
+			else
+				context:Reply(table.concat(combinedOutputs, "\n"))
+			end
+		end
+	else
+		local results = table.pack(pcall(function()
+			return self.Run(context, table.unpack(validatedArgs))
+		end))
+
+		local status = results[1]
+		if not status then
+			context:Error(`Runtime Error: {tostring(results[2])}`)
+		else
+			local outputs = {}
+			for i = 2, results.n do
+				local val = results[i]
+				if val ~= nil then
+					table.insert(outputs, tostring(val))
+				end
+			end
+
+			if #outputs > 0 then
+				context:Reply(table.concat(outputs, " "))
+			end
+		end
+	end
+end
+
+return Command
