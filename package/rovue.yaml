@@ -1,0 +1,7 @@
+name: Package
+root: src
+
+tree:
+  - name: Package
+    target: game.Workspace.Package
+    depth: 0
