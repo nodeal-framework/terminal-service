@@ -1,7 +1,7 @@
 return {
 	Name = "kick",
 	Description = "Kicks a player from the server",
-	Permission = "Admin",
+	Permission = "Moderator",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "The player to kick" },
 		{ Name = "Reason", Type = "string", Description = "Reason for the kick", Default = "No reason" }

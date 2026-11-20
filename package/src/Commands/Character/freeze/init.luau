@@ -1,7 +1,7 @@
 return {
 	Name = "freeze",
 	Description = "Freezes a player in place",
-	Permission = "Admin",
+	Permission = "Moderator",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "The player to freeze" }
 	},

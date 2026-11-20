@@ -1,5 +1,6 @@
 return {
 	Name = "coords",
+	Permission = "Any",
 	Aliases = { "pos", "position", "whereami" },
 	Description = "Shows the executor's current character coordinates",
 	Run = function(context)

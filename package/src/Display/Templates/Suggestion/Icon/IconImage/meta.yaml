@@ -1,0 +1,5 @@
+ClassName: ImageLabel
+Properties:
+  BackgroundTransparency: 1
+  ScaleType: Fit
+  Size: [1, 0, 1, 0]

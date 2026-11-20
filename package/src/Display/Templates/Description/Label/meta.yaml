@@ -1,0 +1,11 @@
+ClassName: TextLabel
+Properties:
+  BackgroundTransparency: 1
+  Font: SourceSansLight
+  Size: [1, 0, 1, 0]
+  Text: Description goes here
+  TextColor3: '#FFFFFF'
+  TextSize: 16
+  TextWrapped: true
+  TextXAlignment: Left
+  TextYAlignment: Top

@@ -1,0 +1,9 @@
+ClassName: TextLabel
+Properties:
+  BackgroundTransparency: 1
+  Font: Code
+  Size: [1, 0, 1, 0]
+  Text: el
+  TextColor3: '#FFFFFF'
+  TextSize: 14
+  TextXAlignment: Left

@@ -31,6 +31,10 @@ local function findMatchingBrace(text: string, startIdx: number): number?
 	return nil
 end
 
+-- The line comes from a client: unbounded, `a{1..999999999}` allocates a billion strings and
+-- nested braces multiply each other. A token past the limit is kept as typed.
+local MAX_EXPANSIONS = 1000
+
 local function expandToken(token: string): {string}
 	local startIdx = string.find(token, "{")
 	if not startIdx then
@@ -53,6 +57,10 @@ local function expandToken(token: string): {string}
 		local startVal = tonumber(numStart)
 		local endVal = tonumber(numEnd)
 		if startVal and endVal then
+			if math.abs(endVal - startVal) + 1 > MAX_EXPANSIONS then
+				return {token}
+			end
+
 			local step = startVal <= endVal and 1 or -1
 			for v = startVal, endVal, step do
 				table.insert(expandedParts, tostring(v))
@@ -98,7 +106,13 @@ local function expandToken(token: string): {string}
 	for _, part in expandedParts do
 		local expandedTokenStr = prefix .. part .. suffix
 		local subResults = expandToken(expandedTokenStr)
+
 		for _, subToken in subResults do
+			-- checked while accumulating, which also bounds nested braces multiplying
+			if #results >= MAX_EXPANSIONS then
+				return {token}
+			end
+
 			table.insert(results, subToken)
 		end
 	end
@@ -116,6 +130,11 @@ function Expander.expand(tokens: {string}): {string}
 		local results = expandToken(token)
 		for _, res in results do
 			table.insert(expandedList, res)
+		end
+
+		-- the whole line too: many tokens just under the limit add up
+		if #expandedList > MAX_EXPANSIONS then
+			error(`brace expansion too large (more than {MAX_EXPANSIONS} words)`, 0)
 		end
 	end
 	return expandedList

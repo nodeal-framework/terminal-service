@@ -1,5 +1,6 @@
 return {
 	Name = "pm",
+	Permission = "Moderator", -- `pm all` reaches everyone
 	Aliases = { "whisper", "w" },
 	Description = "Sends a private message to one player's terminal",
 	Args = {

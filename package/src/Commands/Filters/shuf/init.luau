@@ -1,5 +1,6 @@
 return {
 	Name = "shuf",
+	Permission = "Any",
 	Aliases = { "randomize", "shuffle" },
 	Description = "Shuffle the order of stdin lines randomly",
 	Run = function(context)

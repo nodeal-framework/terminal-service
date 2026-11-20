@@ -1,5 +1,6 @@
 return {
 	Name = "tail",
+	Permission = "Any",
 	Description = "Take the last N lines of stdin",
 	Args = {
 		{ Name = "Count", Type = "number", Description = "Number of lines", Default = 5 }

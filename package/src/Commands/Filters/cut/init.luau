@@ -1,5 +1,6 @@
 return {
 	Name = "cut",
+	Permission = "Any",
 	Description = "Extract a single field from each stdin line (delimiter-separated)",
 	Args = {
 		{ Name = "Delimiter", Type = "string", Description = "Field delimiter", Default = "," },

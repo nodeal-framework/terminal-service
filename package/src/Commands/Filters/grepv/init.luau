@@ -1,5 +1,6 @@
 return {
 	Name = "grepv",
+	Permission = "Any",
 	Aliases = { "invert" },
 	Description = "Filter stdin: keep only lines NOT containing the pattern",
 	Args = {

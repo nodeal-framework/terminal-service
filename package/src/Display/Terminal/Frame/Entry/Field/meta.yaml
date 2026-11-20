@@ -1,0 +1,13 @@
+ClassName: TextBox
+Properties:
+  BackgroundTransparency: 1
+  ClearTextOnFocus: false
+  Font: Code
+  LayoutOrder: 999999999
+  Position: [0, 140, 0, 0]
+  Selectable: false
+  Size: [1, -200, 0, 20]
+  Text: ''
+  TextColor3: '#FFFFFF'
+  TextSize: 14
+  TextXAlignment: Left

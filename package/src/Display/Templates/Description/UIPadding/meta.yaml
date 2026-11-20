@@ -1,0 +1,5 @@
+ClassName: UIPadding
+Properties:
+  PaddingBottom: [0, 10]
+  PaddingLeft: [0, 10]
+  PaddingRight: [0, 10]

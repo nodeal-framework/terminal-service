@@ -1,5 +1,6 @@
 return {
 	Name = "grep",
+	Permission = "Any",
 	Aliases = { "match" },
 	Description = "Filter stdin: keep only lines containing the pattern",
 	Args = {

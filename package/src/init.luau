@@ -16,7 +16,8 @@ TerminalService.__index = TerminalService
 --// Services //--
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local NetworkService = game:GetService("NetworkService")
+local TextService = game:GetService("TextService")
+local BridgeService = game:GetService("BridgeService")
 
 --// Modules //--
 local Lexer = require(script.Parser.Lexer)
@@ -26,7 +27,7 @@ local CommandContext = require(script.Classes.CommandContext)
 local Command = require(script.Classes.Command)
 
 --// Private //--
-local Network = NetworkService:GetNetwork("TerminalService")
+local Network = BridgeService:GetNetwork("TerminalService")
 
 local _commands = {}
 local _aliases = {}
@@ -36,7 +37,85 @@ local _history = {}
 local _historyMax = 200
 local _serverStart = os.clock()
 
+-- What one line from a client may cost the server, checked before any of it runs.
+local MAX_LINE = 500 -- characters
+local MAX_TOKENS = 256 -- words, once braces are expanded
+local MAX_COMMANDS = 16 -- commands chained with ; && || | >
+local MAX_OUTPUT = 16384 -- characters sent back or redirected
+
+local OPERATORS = { [";"] = true, ["&&"] = true, ["||"] = true, ["|"] = true, [">"] = true }
+
+-- A command that declares no Permission is admin-only: forgetting the field must not open it to every client.
+TerminalService.DefaultPermission = script:GetAttribute("DefaultPermission") or "Admin"
+-- Printing into another player's console (`cmd > player`) is a broadcast.
+TerminalService.RedirectPermission = script:GetAttribute("RedirectPermission") or "Moderator"
+
 --// Helpers //--
+local function allowed(executor: Player?, permission: any): boolean
+	if not executor or permission == "Any" then
+		return true
+	end
+
+	local auth = TerminalService.AuthorizationService
+	return auth ~= nil and auth:HasPermissionAsync(executor, permission) == true
+end
+
+local function cap(text: any): any
+	if type(text) == "string" and #text > MAX_OUTPUT then
+		return string.sub(text, 1, MAX_OUTPUT) .. "\n[output truncated]"
+	end
+
+	return text
+end
+
+-- What a player typed, fit for every reader. Nil when Roblox's filter does not answer: nothing unfiltered goes out.
+local function filtered(from: Player?, text: any): any
+	if not from or type(text) ~= "string" or text == "" then
+		return text
+	end
+
+	local ok, result = pcall(function()
+		return TextService:FilterStringAsync(text, from.UserId, Enum.TextFilterContext.PublicChat):GetNonChatStringForBroadcastAsync()
+	end)
+
+	return if ok then result else nil
+end
+
+-- The terminal a command sees: what its player sends to others is filtered first. Everything else is the service itself.
+local function terminalFor(executor: Player?): any
+	if not executor then
+		return TerminalService
+	end
+
+	local cache = {}
+
+	local function clean(message: any): any
+		local text = cache[message]
+
+		if text == nil then
+			text = filtered(executor, message)
+			if text == nil then
+				error("the text filter did not answer, nothing was sent", 0)
+			end
+			cache[message] = text
+		end
+
+		return text
+	end
+
+	return setmetatable({
+		Broadcast = function(_, message: string, kind: string?)
+			TerminalService:Broadcast(clean(message), kind)
+		end,
+		PrintTo = function(_, target: any, message: string, kind: string?)
+			TerminalService:PrintTo(target, clean(message), kind)
+		end,
+		SendSystemChat = function(_, target: any, message: string)
+			TerminalService:SendSystemChat(target, clean(message))
+		end,
+	}, { __index = TerminalService, __newindex = TerminalService })
+end
+
 local function evaluateAST(node: any, stdin: string, executor: Player): (number, string, string)
 	if not node then return 0, "", "" end
 
@@ -46,7 +125,7 @@ local function evaluateAST(node: any, stdin: string, executor: Player): (number,
 			return 1, "", `Command '{node.name}' not found`
 		end
 
-		local context = CommandContext.new(executor, node.args, stdin, TerminalService)
+		local context = CommandContext.new(executor, node.args, stdin, terminalFor(executor))
 		command:Execute(context, node.args, TerminalService)
 
 		return context.Code, context.Output, context.ErrorMsg
@@ -58,24 +137,47 @@ local function evaluateAST(node: any, stdin: string, executor: Player): (number,
 		end
 
 		if stdout ~= "" then
+			local targets = {}
 			local playerType = TerminalService:GetType("Player")
+
 			if playerType then
-				local isValid = playerType.Validate(node.target, executor)
-				if isValid then
+				if playerType.Validate(node.target, executor) then
 					local target = playerType.Transform(node.target, executor)
 					if type(target) == "table" and target.__isMultiValue then
-						for _, p in target.Values do
-							Network:Fire(p, "RedirectPrint", stdout)
-						end
+						targets = target.Values
 					elseif typeof(target) == "Instance" and target:IsA("Player") then
-						Network:Fire(target, "RedirectPrint", stdout)
+						targets = { target }
 					end
 				end
 			else
 				local targetPlayer = Players:FindFirstChild(node.target)
-				if targetPlayer then
-					Network:Fire(targetPlayer, "RedirectPrint", stdout)
+				if targetPlayer and targetPlayer:IsA("Player") then
+					targets = { targetPlayer }
 				end
+			end
+
+			-- anyone could print into every console with `echo ... > all`
+			local others = false
+			for _, p in targets do
+				if p ~= executor then
+					if not allowed(executor, TerminalService.RedirectPermission) then
+						return 1, "", "redirect: permission denied"
+					end
+					others = true
+				end
+			end
+
+			stdout = cap(stdout)
+
+			if others then
+				stdout = filtered(executor, stdout)
+				if stdout == nil then
+					return 1, "", "redirect: the text filter did not answer, nothing was sent"
+				end
+			end
+
+			for _, p in targets do
+				Network:Fire(p, "RedirectPrint", stdout)
 			end
 		end
 
@@ -189,6 +291,7 @@ function TerminalService:RegisterCommand(config: table): ()
 	if not config.Name then warn("Missing command name for:", config, "skipping") return end
 	
 	local cmd = Command.new(config)
+	cmd.Permission = cmd.Permission or TerminalService.DefaultPermission
 	_commands[config.Name] = cmd
 
 	for _, alias in cmd.Aliases do
@@ -252,6 +355,22 @@ function TerminalService:Execute(line: string, executor: Player?): (number, stri
 	local results = table.pack(pcall(function()
 		local rawTokens = Lexer.tokenize(line)
 		local expandedTokens = Expander.expand(rawTokens)
+
+		if #expandedTokens > MAX_TOKENS then
+			error(`too many words (more than {MAX_TOKENS})`, 0)
+		end
+
+		local commands = 1
+		for _, token in expandedTokens do
+			if OPERATORS[token] then
+				commands += 1
+			end
+		end
+
+		if commands > MAX_COMMANDS then
+			error(`too many commands in one line (more than {MAX_COMMANDS})`, 0)
+		end
+
 		local ast = Parser.parse(expandedTokens)
 
 		if not ast then
@@ -264,6 +383,10 @@ function TerminalService:Execute(line: string, executor: Player?): (number, stri
 	local status = results[1]
 	if not status then
 		return 1, "", `Parser Error: {tostring(results[2])}`
+	end
+
+	if executor then
+		return results[2], cap(results[3]), cap(results[4])
 	end
 
 	return table.unpack(results, 2, results.n)
@@ -281,7 +404,8 @@ function TerminalService:GetUptime(): number
 	return os.clock() - _serverStart
 end
 
-function TerminalService.Broadcast(message: string, kind: string?)
+-- A colon: every caller writes Terminal:Broadcast(...), and the dot made the service itself the message.
+function TerminalService:Broadcast(message: string, kind: string?)
 	if RunService:IsClient() then return end
 	local payload = { Message = message, Kind = kind or "Normal" }
 	for _, p in Players:GetPlayers() do
@@ -358,6 +482,46 @@ end
 --[=[
 	Returns autocomplete data for a given input line.
 ]=]
+-- What a command takes, as the terminal's suggestions show it: "<title> <body>".
+local function usageOf(command): string
+	local parts = {}
+	for _, arg in command.Args or {} do
+		table.insert(parts, `<{string.lower(arg.Name or arg.name or "arg")}>`)
+	end
+	return table.concat(parts, " ")
+end
+
+-- Autocomplete crosses BridgeService, which cannot serialize functions. A command may declare a
+-- dynamic Type as a function: resolve it here, and send only the fields the client UI reads.
+local function clientArgs(args, rawArgs): { any }
+	local list = {}
+
+	for i, arg in args or {} do
+		local argType = arg.Type or arg.type or "string"
+
+		if type(argType) == "function" then
+			local ok, resolved = pcall(argType, rawArgs)
+			argType = if ok and type(resolved) == "string" then resolved else "string"
+		elseif type(argType) ~= "string" then
+			argType = "string"
+		end
+
+		-- Copy the fields the command declared (custom type options included), minus functions.
+		local sanitized = {}
+		for key, value in arg do
+			if type(value) ~= "function" then
+				sanitized[key] = value
+			end
+		end
+
+		sanitized.Name = arg.Name or arg.name or "unknown"
+		sanitized.Type = argType
+		list[i] = sanitized
+	end
+
+	return list
+end
+
 function TerminalService:GetAutocompleteSuggestions(line: string, player: Player?): any
 	if RunService:IsClient() then
 		return Network:Invoke("Autocomplete", line)
@@ -369,7 +533,7 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 	if #tokens == 0 then
 		local list = {}
 		for name, cmd in _commands do
-			table.insert(list, { Text = name, Description = cmd.Description or "" })
+			table.insert(list, { Text = name, Description = cmd.Description or "", Usage = usageOf(cmd), Category = cmd.Category })
 		end
 		return { Suggestions = list }
 	end
@@ -422,14 +586,14 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		for name, cmd in _commands do
 			local score = TerminalService.FuzzyMatch(prefix, name)
 			if score > 0 then
-				table.insert(list, { Text = name, Description = cmd.Description or "", Score = score })
+				table.insert(list, { Text = name, Description = cmd.Description or "", Usage = usageOf(cmd), Category = cmd.Category, Score = score })
 			end
 		end
 		for alias, cmdName in _aliases do
 			local score = TerminalService.FuzzyMatch(prefix, alias)
 			if score > 0 then
 				local cmd = _commands[cmdName]
-				table.insert(list, { Text = alias, Description = `Alias for {cmdName}`, Score = score })
+				table.insert(list, { Text = alias, Description = `Alias for {cmdName}`, Usage = cmd and usageOf(cmd) or "", Category = cmd and cmd.Category, Score = score })
 			end
 		end
 		table.sort(list, function(a, b) return (a.Score or 0) > (b.Score or 0) end)
@@ -465,10 +629,15 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		end
 	end
 
+	local rawArgs = {}
+	for i = 2, #tokens do
+		table.insert(rawArgs, tokens[i])
+	end
+
 	local cmdInfo = {
 		Name = command.Name,
 		Description = command.Description,
-		Args = command.Args
+		Args = clientArgs(command.Args, rawArgs)
 	}
 
 	local argSpec = command.Args[argIdx]
@@ -476,14 +645,11 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		return { Suggestions = {}, CommandInfo = cmdInfo, ActiveArgIndex = argIdx } 
 	end
 
-	local rawArgs = {}
-	for i = 2, #tokens do
-		table.insert(rawArgs, tokens[i])
-	end
-
 	local argType = argSpec.Type or argSpec.type
 	if type(argType) == "function" then
 		argType = argType(rawArgs) or "string"
+	elseif type(argType) ~= "string" then
+		argType = "string"
 	end
 	local types = string.split(string.gsub(argType, "%s+", ""), "|")
 	local richSuggestions = {}
@@ -555,22 +721,25 @@ function TerminalService.Init()
 			local player = header.Player
 			if not player then return end
 
+			-- bounded before lexing: a client must not make the server pay for an arbitrary line
 			if action == "Execute" then
 				local line = ...
 				if type(line) ~= "string" then return 1, "", "Invalid input" end
+				if #line > MAX_LINE then return 1, "", "Input too long" end
 				return TerminalService:Execute(line, player)
 			elseif action == "Autocomplete" then
 				local line = ...
 				if type(line) ~= "string" then return {} end
+				if #line > MAX_LINE then return {} end
 				return TerminalService:GetAutocompleteSuggestions(line, player)
 			end
 		end)
 	else
 		task.spawn(function()
 			local displayModule = script:FindFirstChild("Display")
-			if displayModule and displayModule:IsA("ModuleScript") then
+			if displayModule then
 				local Display = require(displayModule)
-				Display.Init(TerminalService)
+				Display.Mount(TerminalService)
 			end
 		end)
 	end

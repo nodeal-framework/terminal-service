@@ -1,6 +1,6 @@
 return {
 	Name = "respawn",
-	Permission = "Admin",
+	Permission = "Moderator",
 	Description = "Respawns a player (kills and respawns them at SpawnLocation)",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "Player to respawn" }

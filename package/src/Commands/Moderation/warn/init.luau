@@ -1,6 +1,6 @@
 return {
 	Name = "warn",
-	Permission = "Admin",
+	Permission = "Moderator",
 	Description = "Sends a warning message that appears prominently in the target's terminal",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "Player to warn" },

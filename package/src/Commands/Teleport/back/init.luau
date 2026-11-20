@@ -1,5 +1,6 @@
 return {
 	Name = "back",
+	Permission = "Moderator", -- moves any player, like bring and goto
 	Description = "Returns to the most recent saved position before a teleport (stack of last 10 positions)",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "Player", Default = "me" }

@@ -1,0 +1,5 @@
+ClassName: ScreenGui
+Properties:
+  AutoLocalize: false
+  DisplayOrder: 1000
+  ResetOnSpawn: false

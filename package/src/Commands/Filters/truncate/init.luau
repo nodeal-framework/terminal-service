@@ -1,5 +1,6 @@
 return {
 	Name = "truncate",
+	Permission = "Any",
 	Aliases = { "trunc", "limit" },
 	Description = "Limit stdin to at most N lines",
 	Args = {

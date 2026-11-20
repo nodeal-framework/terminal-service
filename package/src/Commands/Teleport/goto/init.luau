@@ -1,7 +1,7 @@
 return {
 	Name = "goto",
 	Description = "Teleports you to a player",
-	Permission = "Admin",
+	Permission = "Moderator",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "The player to teleport to" }
 	},

@@ -1,5 +1,6 @@
 return {
 	Name = "whoami",
+	Permission = "Any",
 	Aliases = { "myinfo" },
 	Description = "Displays info about the calling player",
 	Run = function(context)

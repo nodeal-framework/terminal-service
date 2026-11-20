@@ -1,5 +1,6 @@
 return {
 	Name = "wc",
+	Permission = "Any",
 	Aliases = { "count" },
 	Description = "Count lines (l), words (w), or characters (c) of stdin",
 	Args = {

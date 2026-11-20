@@ -1,5 +1,6 @@
 return {
 	Name = "memory",
+	Permission = "Moderator",
 	Aliases = { "mem" },
 	Description = "Shows server memory usage (Luau managed heap)",
 	Run = function(context)

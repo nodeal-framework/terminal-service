@@ -1,5 +1,6 @@
 return {
 	Name = "uniq",
+	Permission = "Any",
 	Description = "Remove duplicate consecutive lines from stdin",
 	Run = function(context)
 		local input = context:GetInput()

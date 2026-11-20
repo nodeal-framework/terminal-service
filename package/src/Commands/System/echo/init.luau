@@ -1,5 +1,6 @@
 return {
 	Name = "echo",
+	Permission = "Any",
 	Aliases = {},
 	Description = "Prints the input message to the terminal output",
 	Args = {

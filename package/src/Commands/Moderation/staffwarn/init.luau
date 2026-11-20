@@ -1,7 +1,7 @@
 return {
 	Name = "staffwarn",
 	Aliases = { "swarn" },
-	Permission = "Admin",
+	Permission = "Moderator",
 	Description = "Sends a stylized staff warning (severity: INFO/WARN/ERROR/CRITICAL/SUCCESS)",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "Player to warn" },

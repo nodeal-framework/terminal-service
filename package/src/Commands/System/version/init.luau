@@ -1,5 +1,6 @@
 return {
 	Name = "version",
+	Permission = "Any",
 	Aliases = { "ver" },
 	Description = "Shows game and TerminalService version info",
 	Run = function(context)

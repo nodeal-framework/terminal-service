@@ -1,0 +1,15 @@
+ClassName: TextBox
+Properties:
+  AutomaticSize: Y
+  BackgroundTransparency: 1
+  ClearTextOnFocus: false
+  Font: Code
+  LayoutOrder: 1
+  Size: [1, -200, 0, 20]
+  Text: ''
+  TextColor3: '#FFFFFF'
+  TextEditable: false
+  TextSize: 14
+  TextWrapped: true
+  TextXAlignment: Left
+  TextYAlignment: Top

@@ -1,6 +1,7 @@
 local Help = {}
 
 Help.Name = "help"
+Help.Permission = "Any"
 Help.Aliases = { "man", "?" }
 Help.Description = "Lists all commands grouped by category or shows detailed usage for a specific command"
 Help.Args = {

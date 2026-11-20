@@ -1,5 +1,6 @@
 return {
 	Name = "head",
+	Permission = "Any",
 	Description = "Take the first N lines of stdin",
 	Args = {
 		{ Name = "Count", Type = "number", Description = "Number of lines", Default = 5 }

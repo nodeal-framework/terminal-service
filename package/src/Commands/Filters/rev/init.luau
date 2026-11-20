@@ -1,5 +1,6 @@
 return {
 	Name = "rev",
+	Permission = "Any",
 	Aliases = { "reverse" },
 	Description = "Reverse the order of stdin lines",
 	Run = function(context)

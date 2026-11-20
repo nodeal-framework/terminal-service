@@ -1,0 +1,4 @@
+ClassName: UIAspectRatioConstraint
+Properties:
+  AspectRatio: 1
+  DominantAxis: Height

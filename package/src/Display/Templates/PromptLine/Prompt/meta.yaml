@@ -1,0 +1,12 @@
+ClassName: TextLabel
+Properties:
+  AutomaticSize: X
+  BackgroundTransparency: 1
+  Font: Code
+  LayoutOrder: 0
+  RichText: true
+  Size: [0, 0, 0, 20]
+  Text: ''
+  TextColor3: '#C8C8C8'
+  TextSize: 14
+  TextYAlignment: Top

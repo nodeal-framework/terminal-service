@@ -1,0 +1,11 @@
+ClassName: TextButton
+Properties:
+  BackgroundColor3: '#FFFFFF'
+  BackgroundTransparency: 1
+  BorderSizePixel: 0
+  Font: Code
+  Size: [1, 0, 0, 30]
+  Text: ''
+  TextColor3: '#FFFFFF'
+  TextSize: 14
+  TextXAlignment: Left

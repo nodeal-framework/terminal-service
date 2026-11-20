@@ -1,5 +1,6 @@
 return {
 	Name = "random",
+	Permission = "Any",
 	Aliases = { "roll", "rand", "randint" },
 	Description = "Generates a random number within a range. Defaults to integer; pass 'false' as last arg for float",
 	Args = {

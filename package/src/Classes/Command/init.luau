@@ -19,6 +19,7 @@ function Command.new(config: table)
 	self.Name = config.Name
 	self.Aliases = config.Aliases or {}
 	self.Description = config.Description or ""
+	self.Category = config.Category
 	self.Permission = config.Permission
 	self.Args = config.Args or {}
 	self.Run = config.Run
@@ -26,7 +27,39 @@ function Command.new(config: table)
 	return self
 end
 
+-- Checked on every run. A command that declares no Permission falls back on TerminalService's
+-- DefaultPermission ("Admin" unless changed): open commands say Permission = "Any".
+local function isAllowed(command, context, terminalService): boolean
+	local terminal = terminalService or (context and context.Terminal)
+	local required = command.Permission or (terminal and terminal.DefaultPermission) or "Admin"
+
+	if required == "Any" then
+		return true
+	end
+
+	-- No executor: the server ran it itself, not a client.
+	local executor = context and context.Executor
+
+	if not executor then
+		return true
+	end
+
+	local auth = terminal and terminal.AuthorizationService
+
+	-- Fail closed: no authorization service means no privileged command.
+	if not auth then
+		return false
+	end
+
+	return auth:HasPermissionAsync(executor, required) == true
+end
+
 function Command:Execute(context, rawArgs: {string}, terminalService)
+	if not isAllowed(self, context, terminalService) then
+		context:Error(`{self.Name}: permission denied`)
+		return
+	end
+
 	local validatedArgs = {}
 
 	for idx, argSpec in self.Args do

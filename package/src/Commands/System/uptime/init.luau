@@ -1,5 +1,6 @@
 return {
 	Name = "uptime",
+	Permission = "Any",
 	Description = "Shows how long the server has been running",
 	Run = function(context)
 		local s = context.Terminal:GetUptime()

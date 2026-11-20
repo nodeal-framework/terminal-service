@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 
 return {
 	Name = "admins",
+	Permission = "Any",
 	Aliases = { "staff" },
 	Description = "Lists online players with at least the given role value",
 	Args = {

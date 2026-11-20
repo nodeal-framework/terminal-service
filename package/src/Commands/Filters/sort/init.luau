@@ -1,5 +1,6 @@
 return {
 	Name = "sort",
+	Permission = "Any",
 	Description = "Sort lines of stdin alphabetically (case-insensitive)",
 	Args = {
 		{ Name = "Reverse", Type = "boolean", Description = "Reverse sort order", Default = false, Optional = true }

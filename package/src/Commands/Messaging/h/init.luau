@@ -1,5 +1,6 @@
 return {
 	Name = "h",
+	Permission = "Moderator", -- text in every player's terminal
 	Aliases = { "hint" },
 	Description = "Broadcasts a subtle hint to every online player's terminal",
 	Args = {

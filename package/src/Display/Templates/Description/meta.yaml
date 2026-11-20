@@ -1,0 +1,7 @@
+ClassName: Frame
+Properties:
+  BackgroundColor3: '#3B3B3B'
+  BackgroundTransparency: 1
+  BorderSizePixel: 0
+  LayoutOrder: -1
+  Size: [1, 0, 0, 20]

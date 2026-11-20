@@ -1,0 +1,13 @@
+ClassName: ScrollingFrame
+Properties:
+  AutomaticCanvasSize: Y
+  BackgroundColor3: '#0F0F0F'
+  BackgroundTransparency: 0.1
+  BorderSizePixel: 0
+  CanvasSize: [0, 0, 0, 0]
+  Position: [0, 167, 0, 75]
+  ScrollBarThickness: 6
+  ScrollingDirection: Y
+  Selectable: false
+  Size: [0, 200, 0, 200]
+  Visible: false

@@ -2,6 +2,7 @@ local Lighting = game:GetService("Lighting")
 
 return {
 	Name = "setcolor",
+	Permission = "Admin",
 	Description = "Sets the global ambient lighting color",
 	Args = {
 		{ Name = "Color", Type = "Color3", Description = "The ambient color to set" }
