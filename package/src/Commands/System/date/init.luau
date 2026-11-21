@@ -1,5 +1,5 @@
 return {
-	Name = "time",
+	Name = "date",
 	Description = "Shows the current server time",
 	Permission = "Any",
 	Args = {},

@@ -1,7 +1,7 @@
 return {
-	Name = "test",
+	Name = "try",
 	Permission = "Any",
-	Description = "Test a terminal type and preview its custom UI and autocompletion.",
+	Description = "Preview a terminal type's custom UI and autocompletion.",
 	Args = {
 		{ 
 			Name = "Type", 
