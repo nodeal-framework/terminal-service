@@ -1,22 +1,31 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
+
 return {
 	Name = "rev",
 	Permission = "Any",
-	Aliases = { "reverse" },
-	Description = "Reverse the order of stdin lines",
+	Description = "Reverse the characters of each line of stdin",
+	Args = {},
 	Run = function(context)
-		local input = context:GetInput()
-		if input == "" then return "" end
-
-		local lines = {}
-		for line in string.gmatch(input, "[^\n]+") do
-			table.insert(lines, line)
+		local out = {}
+		for _, line in Text.lines(context:GetInput()) do
+			local chars = {}
+			for i = #line, 1, -1 do
+				table.insert(chars, string.sub(line, i, i))
+			end
+			table.insert(out, table.concat(chars))
 		end
-
-		local n = #lines
-		for i = 1, math.floor(n / 2) do
-			lines[i], lines[n - i + 1] = lines[n - i + 1], lines[i]
-		end
-
-		return table.concat(lines, "\n")
-	end
+		return table.concat(out, "\n")
+	end,
 }
