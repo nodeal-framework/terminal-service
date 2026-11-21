@@ -56,7 +56,7 @@ end
 
 function Command:Execute(context, rawArgs: {string}, terminalService)
 	if not isAllowed(self, context, terminalService) then
-		context:Error(`{self.Name}: permission denied`)
+		context:Error(`{self.Name}: permission denied`, 126)
 		return
 	end
 
@@ -158,6 +158,9 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 
 			local status = results[1]
 			if not status then
+				if type(results[2]) == "table" and results[2].__shellControl then
+					error(results[2], 0)
+				end
 				hasErrors = true
 				table.insert(combinedOutputs, `[Error]: {tostring(results[2])}`)
 			else
@@ -185,6 +188,9 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 
 		local status = results[1]
 		if not status then
+			if type(results[2]) == "table" and results[2].__shellControl then
+				error(results[2], 0)
+			end
 			context:Error(`Runtime Error: {tostring(results[2])}`)
 		else
 			local outputs = {}

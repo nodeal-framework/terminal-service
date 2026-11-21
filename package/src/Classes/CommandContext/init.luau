@@ -13,7 +13,7 @@
 local CommandContext = {}
 CommandContext.__index = CommandContext
 
-function CommandContext.new(executor: Player, args: {string}, input: string?, terminalService: table)
+function CommandContext.new(executor: Player, args: {string}, input: string?, terminalService: table, shell: any?)
 	local self = setmetatable({}, CommandContext)
 
 	self.Executor = executor
@@ -23,6 +23,7 @@ function CommandContext.new(executor: Player, args: {string}, input: string?, te
 	self.ErrorMsg = ""
 	self.Code = 0
 	self.Terminal = terminalService
+	self.Shell = shell
 
 	return self
 end
@@ -35,13 +36,17 @@ function CommandContext:Reply(msg: string): ()
 	end
 end
 
-function CommandContext:Error(msg: string): ()
+function CommandContext:Error(msg: string, code: number?): ()
 	if self.ErrorMsg ~= "" then
 		self.ErrorMsg ..= "\n" .. msg
 	else
 		self.ErrorMsg = msg
 	end
-	self.Code = 1
+	self.Code = code or 1
+end
+
+function CommandContext:SetCode(code: number): ()
+	self.Code = code
 end
 
 function CommandContext:GetInput(): string
