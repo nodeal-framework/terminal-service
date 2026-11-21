@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `cut` command: Remove sections from each line of stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +22,14 @@ return {
 	Permission = "Any",
 	Description = "Remove sections from each line of stdin",
 	Args = {},
+	--[=[
+		Remove sections from each line of stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "b:c:d:f:s", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "b:c:d:f:s", {
 			bytes = "b",
 			characters = "c",
 			delimiter = "d",
@@ -29,8 +39,8 @@ return {
 			["output-delimiter"] = "output_delimiter",
 		})
 
-		if err then
-			context:Error(`cut: {err}`, 2)
+		if errorValue then
+			context:Error(`cut: {errorValue}`, 2)
 			return ""
 		end
 
@@ -72,16 +82,24 @@ return {
 				local selected = {}
 				for index, value in fields do
 					local include = Text.inRanges(index, ranges)
-					if complement then include = not include end
-					if include then table.insert(selected, value) end
+					if complement then
+						include = not include
+					end
+					if include then
+						table.insert(selected, value)
+					end
 				end
 				table.insert(out, table.concat(selected, outputDelimiter or delimiter))
 			else
 				local selected = {}
 				for index = 1, #line do
 					local include = Text.inRanges(index, ranges)
-					if complement then include = not include end
-					if include then table.insert(selected, string.sub(line, index, index)) end
+					if complement then
+						include = not include
+					end
+					if include then
+						table.insert(selected, string.sub(line, index, index))
+					end
 				end
 				table.insert(out, table.concat(selected))
 			end

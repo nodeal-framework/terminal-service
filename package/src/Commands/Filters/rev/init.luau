@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `rev` command: Reverse the characters of each line of stdin.
+]=]
+
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
 return {
@@ -17,6 +21,12 @@ return {
 	Permission = "Any",
 	Description = "Reverse the characters of each line of stdin",
 	Args = {},
+	--[=[
+		Reverse the characters of each line of stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
 		local out = {}
 		for _, line in Text.lines(context:GetInput()) do

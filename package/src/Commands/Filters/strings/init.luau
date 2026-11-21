@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `strings` command: Print runs of printable characters from
+	stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 
 return {
@@ -17,14 +22,20 @@ return {
 	Permission = "Any",
 	Description = "Print runs of printable characters from stdin",
 	Args = {},
+	--[=[
+		Print runs of printable characters from stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "n:a", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "n:a", {
 			minimum = "n",
 			all = "a",
 		})
 
-		if err then
-			context:Error(`strings: {err}`, 2)
+		if errorValue then
+			context:Error(`strings: {errorValue}`, 2)
 			return ""
 		end
 

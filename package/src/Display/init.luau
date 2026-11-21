@@ -1,4 +1,24 @@
-local __=_G() local Display = {}
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Client-side terminal UI.
+
+	Builds the compact Rovue console from the module's instance templates, renders
+	output, drives autocomplete and toggles the terminal with RightShift.
+]=]
+
+local __ = _G()
+local Display = {}
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -16,8 +36,9 @@ local mainFrame
 local inputBar
 local autocompleteDropdown
 
--- The UI lives as real instances right under this module (src/Display). Nothing below builds a
--- GuiObject from code: the screen is cloned once, and every repeated row is a template clone.
+-- The UI lives as real instances right under this module (src/Display).
+-- Nothing below builds a GuiObject from code: the screen is cloned once, and
+-- every repeated row is a template clone.
 local uiTemplates = script.Templates
 local terminalTemplate = script.Terminal
 
@@ -27,8 +48,16 @@ local suggestTemplate = uiTemplates.Suggestion
 local titleTemplate = uiTemplates.Signature
 local descriptionTemplate = uiTemplates.Description
 
--- The client runtime detaches every descendant before loading, so a plain Clone() would return an
--- empty instance. Rebuild one real prototype from the Node tree, then native Clone() keeps working.
+-- The client runtime detaches every descendant before loading, so a plain
+-- Clone() would return an empty instance. Rebuild one real prototype from the
+-- Node tree, then native Clone() keeps working.
+--[=[
+	Rebuilds a cloned instance tree whose descendants were detached.
+
+	@param node The syntax tree node to evaluate.
+
+	@return The rebuilt instance tree.
+]=]
 local function repairTree(node)
 	local clone = node:Clone()
 	for _, child in node:GetChildren() do
@@ -57,6 +86,13 @@ local expectedDropdownVisible = false
 local currentActiveArgText = ""
 local lastSuggestionText = ""
 
+--[=[
+	Formats the shell prompt, optionally as rich text.
+
+	@param isHtml Whether the prompt uses rich text.
+
+	@return The formatted prompt.
+]=]
 local function getPrompt(isHtml: boolean)
 	local playerName = localPlayer.Name
 	if isHtml then
@@ -66,14 +102,24 @@ local function getPrompt(isHtml: boolean)
 	end
 end
 
+--[=[
+	Computes the console height for its current content.
+
+	@return The console height in pixels.
+]=]
 local function getDesiredHeight()
-	if not mainFrame then return 0 end
+	if not mainFrame then
+		return 0
+	end
 	local layout = mainFrame:FindFirstChildOfClass("UIListLayout")
 	local contentH = layout and layout.AbsoluteContentSize.Y or 0
 	local maxH = math.min(workspace.CurrentCamera.ViewportSize.Y * 0.25, 250)
 	return math.min(contentH + 10, maxH)
 end
 
+--[=[
+	Clones the terminal templates into PlayerGui.
+]=]
 local function createUI()
 	terminalGui = terminalPrototype:Clone()
 	terminalGui.Parent = playerGui
@@ -94,10 +140,18 @@ local function createUI()
 	end)
 end
 
--- Oldest lines go past this: output redirected by others could otherwise grow the console for ever.
+-- Oldest lines go past this: output redirected by others could otherwise grow
+-- the console for ever.
 local MAX_LINES = 500
 local consoleLines: { Instance } = {}
 
+--[=[
+	Appends one output line, handling clear sequences and the line cap.
+
+	@param text The text to inspect.
+	@param color The colour to apply.
+	@param promptHtml Whether the prompt row uses rich text.
+]=]
 local function printToConsole(text: string, color: Color3?, promptHtml: string?)
 	local clearChunks = string.split(text, "\27[2J")
 	if #clearChunks > 1 then
@@ -111,12 +165,15 @@ local function printToConsole(text: string, color: Color3?, promptHtml: string?)
 		if string.sub(text, 1, 1) == "\n" then
 			text = string.sub(text, 2)
 		end
-		if text == "" then return end
+		if text == "" then
+			return
+		end
 	end
 
 	text = string.gsub(text, "\t", "    ")
 
-	-- Both rows are templates: the prompt one only adds the echoed command's prompt.
+	-- Both rows are templates: the prompt one only adds the echoed command's
+	-- prompt.
 	local template = if promptHtml then promptLinePrototype else linePrototype
 	local lineFrame = template:Clone()
 	lineFrame.Name = "Line" -- the clear loop and the 500-line cap find rows by this name
@@ -141,11 +198,18 @@ local function printToConsole(text: string, color: Color3?, promptHtml: string?)
 	end)
 end
 
+--[=[
+	Hides and clears the autocomplete dropdown.
+]=]
 local function closeSuggestions()
 	expectedDropdownVisible = false
 	autocompleteDropdown.Visible = false
 	for _, child in autocompleteDropdown:GetChildren() do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") and not child:IsA("UIStroke") then
+		if
+			not child:IsA("UIListLayout")
+			and not child:IsA("UIPadding")
+			and not child:IsA("UIStroke")
+		then
 			child:Destroy()
 		end
 	end
@@ -153,6 +217,11 @@ local function closeSuggestions()
 	activeSuggestions = {}
 end
 
+--[=[
+	Replaces the active argument with a suggestion.
+
+	@param suggestion The suggestion being handled.
+]=]
 local function applySuggestion(suggestion: string)
 	local currentText = inputBar.Text
 	local argText = currentActiveArgText
@@ -166,6 +235,11 @@ local function applySuggestion(suggestion: string)
 	closeSuggestions()
 end
 
+--[=[
+	Highlights one suggestion and scrolls it into view.
+
+	@param index The position to start at.
+]=]
 local function highlightSuggestion(index: number)
 	selectedSuggestionIndex = index
 	local targetBtn = nil
@@ -185,19 +259,21 @@ local function highlightSuggestion(index: number)
 		local viewBottom = viewTop + autocompleteDropdown.AbsoluteWindowSize.Y
 
 		if btnTop < viewTop then
-			autocompleteDropdown.CanvasPosition = Vector2.new(
-				0, 
-				autocompleteDropdown.CanvasPosition.Y - (viewTop - btnTop)
-			)
+			autocompleteDropdown.CanvasPosition =
+				Vector2.new(0, autocompleteDropdown.CanvasPosition.Y - (viewTop - btnTop))
 		elseif btnBottom > viewBottom then
-			autocompleteDropdown.CanvasPosition = Vector2.new(
-				0, 
-				autocompleteDropdown.CanvasPosition.Y + (btnBottom - viewBottom)
-			)
+			autocompleteDropdown.CanvasPosition =
+				Vector2.new(0, autocompleteDropdown.CanvasPosition.Y + (btnBottom - viewBottom))
 		end
 	end
 end
 
+--[=[
+	Builds the command signature header in the dropdown.
+
+	@param cmdInfo The command metadata to send.
+	@param activeIndex The highlighted suggestion index.
+]=]
 local function buildSignatureUI(cmdInfo, activeIndex)
 	local title = titlePrototype:Clone()
 	title.Visible = true
@@ -212,10 +288,10 @@ local function buildSignatureUI(cmdInfo, activeIndex)
 		nameField.TextColor3 = Color3.fromRGB(255, 255, 255)
 		nameField.Parent = title
 
-		for i, arg in ipairs(cmdInfo.Args) do
+		for i, argument in ipairs(cmdInfo.Args) do
 			local f = templateField:Clone()
-			local argName = arg.Name or arg.name or "unknown"
-			local argType = arg.Type or arg.type or "any"
+			local argName = argument.Name or argument.name or "unknown"
+			local argType = argument.Type or argument.type or "any"
 			if type(argType) ~= "string" then
 				argType = "any"
 			end
@@ -229,21 +305,33 @@ local function buildSignatureUI(cmdInfo, activeIndex)
 			end
 
 			f.TextSize = 17
-			f.Text = string.format([[<font color="rgb(%d,%d,%d)">%s<font size="13" face="SourceSans">%s</font></font>]], r, g, b, argName, argType)
+			f.Text = string.format(
+				[[<font color="rgb(%d,%d,%d)">%s<font size="13" face="SourceSans">%s</font></font>]],
+				r,
+				g,
+				b,
+				argName,
+				argType
+			)
 			f.Parent = title
 		end
 	end
 
 	if cmdInfo.Description and cmdInfo.Description ~= "" then
-		local desc = descriptionPrototype:Clone()
-		desc.Label.Text = cmdInfo.Description
-		desc.Visible = true
-		desc.Parent = autocompleteDropdown
+		local description = descriptionPrototype:Clone()
+		description.Label.Text = cmdInfo.Description
+		description.Visible = true
+		description.Parent = autocompleteDropdown
 	end
 end
 
 local isLiveUpdating = false
 
+--[=[
+	Updates the input while a custom picker changes.
+
+	@param suggestion The suggestion being handled.
+]=]
 local function liveUpdateSuggestion(suggestion: string)
 	isLiveUpdating = true
 	local currentText = inputBar.Text
@@ -261,9 +349,18 @@ local function liveUpdateSuggestion(suggestion: string)
 	isLiveUpdating = false
 end
 
+--[=[
+	Rebuilds the autocomplete dropdown for the current input.
+
+	@param forceRebuild Whether to rebuild even when cached.
+]=]
 local function updateSuggestions(forceRebuild)
-	if not terminalService then return end
-	if isLiveUpdating then return end
+	if not terminalService then
+		return
+	end
+	if isLiveUpdating then
+		return
+	end
 
 	local currentText = inputBar.Text
 	currentText = string.gsub(currentText, "\t", "")
@@ -275,7 +372,8 @@ local function updateSuggestions(forceRebuild)
 
 	local data = terminalService:GetAutocompleteSuggestions(currentText)
 	if type(data) ~= "table" then
-		-- the bridge answers nil when it could not serialize the reply: do not kill the client UI
+		-- the bridge answers nil when it could not serialize the reply: do not
+		-- kill the client UI
 		closeSuggestions()
 		return
 	end
@@ -285,7 +383,11 @@ local function updateSuggestions(forceRebuild)
 	currentActiveArgText = data.CurrentArgText or ""
 
 	for _, child in autocompleteDropdown:GetChildren() do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") and not child:IsA("UIStroke") then
+		if
+			not child:IsA("UIListLayout")
+			and not child:IsA("UIPadding")
+			and not child:IsA("UIStroke")
+		then
 			child:Destroy()
 		end
 	end
@@ -295,17 +397,28 @@ local function updateSuggestions(forceRebuild)
 	if cmdInfo then
 		buildSignatureUI(cmdInfo, activeIndex)
 
-		local nameW = TextService:GetTextSize(cmdInfo.Name, 20, Enum.Font.SourceSansBold, Vector2.new(1000, 20)).X
+		local nameW = TextService:GetTextSize(
+			cmdInfo.Name,
+			20,
+			Enum.Font.SourceSansBold,
+			Vector2.new(1000, 20)
+		).X
 		titleWidth = 10 + nameW
-		for _, arg in ipairs(cmdInfo.Args) do
-			local argName = arg.Name or arg.name or "unknown"
-			local argType = arg.Type or arg.type or "any"
+		for _, argument in ipairs(cmdInfo.Args) do
+			local argName = argument.Name or argument.name or "unknown"
+			local argType = argument.Type or argument.type or "any"
 			if type(argType) ~= "string" then
 				argType = "any"
 			end
 			argType = ": " .. argType
-			local nW = TextService:GetTextSize(argName, 17, Enum.Font.SourceSansBold, Vector2.new(1000, 20)).X
-			local tW = TextService:GetTextSize(argType, 13, Enum.Font.SourceSans, Vector2.new(1000, 20)).X
+			local nW = TextService:GetTextSize(
+				argName,
+				17,
+				Enum.Font.SourceSansBold,
+				Vector2.new(1000, 20)
+			).X
+			local tW =
+				TextService:GetTextSize(argType, 13, Enum.Font.SourceSans, Vector2.new(1000, 20)).X
 			titleWidth = titleWidth + 5 + nW + tW
 		end
 		titleWidth = titleWidth + 30
@@ -319,14 +432,18 @@ local function updateSuggestions(forceRebuild)
 				local typeParser = terminalService:GetType(types[1])
 				if typeParser and typeParser.CreateCustomUI then
 					local customUI = typeParser.CreateCustomUI(
-						data.CurrentArgText or "", 
-						terminalService, 
+						data.CurrentArgText or "",
+						terminalService,
 						function(selectedText)
 							applySuggestion(selectedText)
-							task.defer(function() inputBar:CaptureFocus() end)
+							task.defer(function()
+								inputBar:CaptureFocus()
+							end)
 						end,
 						function() -- keepFocus
-							task.defer(function() inputBar:CaptureFocus() end)
+							task.defer(function()
+								inputBar:CaptureFocus()
+							end)
 						end,
 						function(liveText) -- liveUpdate
 							liveUpdateSuggestion(liveText)
@@ -341,11 +458,11 @@ local function updateSuggestions(forceRebuild)
 
 						local uiHeight = 10
 						local visibleItems = 0
-						if cmdInfo ~= nil then 
+						if cmdInfo ~= nil then
 							uiHeight += 40
 							visibleItems += 1
 						end
-						if cmdInfo and cmdInfo.Description and cmdInfo.Description ~= "" then 
+						if cmdInfo and cmdInfo.Description and cmdInfo.Description ~= "" then
 							uiHeight += 20
 							visibleItems += 1
 						end
@@ -357,7 +474,8 @@ local function updateSuggestions(forceRebuild)
 
 						uiHeight += customUI.Size.Y.Offset
 
-						autocompleteDropdown.Size = UDim2.new(0, math.max(300, titleWidth), 0, uiHeight)
+						autocompleteDropdown.Size =
+							UDim2.new(0, math.max(300, titleWidth), 0, uiHeight)
 						activeSuggestions = {}
 						return
 					end
@@ -400,7 +518,6 @@ local function updateSuggestions(forceRebuild)
 	local maxTextWidth = 100
 	local maxDescWidth = 0
 	for i, suggestion in ipairs(suggestions) do
-
 		local btn = suggestPrototype:Clone()
 		btn.Text = ""
 		local displayString = suggestion.DisplayText or suggestion.Text
@@ -429,14 +546,24 @@ local function updateSuggestions(forceRebuild)
 			btn.Typed.Position = UDim2.new(0, 0, 0, 0)
 		end
 
-		local textWidth = TextService:GetTextSize(displayString, 14, Enum.Font.Code, Vector2.new(1000, 20)).X
-		if textWidth + iconOffset > maxTextWidth then maxTextWidth = textWidth + iconOffset end
+		local textWidth =
+			TextService:GetTextSize(displayString, 14, Enum.Font.Code, Vector2.new(1000, 20)).X
+		if textWidth + iconOffset > maxTextWidth then
+			maxTextWidth = textWidth + iconOffset
+		end
 
 		if suggestion.Description and suggestion.Description ~= "" then
 			btn.Suggest.Text = "- " .. suggestion.Description
 			btn.Suggest.TextColor3 = Color3.fromRGB(150, 150, 150)
-			local descWidth = TextService:GetTextSize(btn.Suggest.Text, 14, Enum.Font.Code, Vector2.new(1000, 20)).X
-			if descWidth > maxDescWidth then maxDescWidth = descWidth end
+			local descWidth = TextService:GetTextSize(
+				btn.Suggest.Text,
+				14,
+				Enum.Font.Code,
+				Vector2.new(1000, 20)
+			).X
+			if descWidth > maxDescWidth then
+				maxDescWidth = descWidth
+			end
 		else
 			btn.Suggest.Text = ""
 		end
@@ -486,6 +613,9 @@ local function updateSuggestions(forceRebuild)
 	autocompleteDropdown.Size = UDim2.new(0, math.max(300, requiredWidth), 0, yHeight)
 end
 
+--[=[
+	Opens or closes the terminal with a tween.
+]=]
 local function toggleConsole()
 	isVisible = not isVisible
 
@@ -503,7 +633,8 @@ local function toggleConsole()
 			mainFrame.CanvasPosition = Vector2.new(0, 99999999)
 		end)
 	else
-		-- otherwise the hidden input keeps focus and every key typed next goes into the closed terminal
+		-- otherwise the hidden input keeps focus and every key typed next goes
+		-- into the closed terminal
 		inputBar:ReleaseFocus()
 
 		closeSuggestions()
@@ -516,9 +647,16 @@ local function toggleConsole()
 	end
 end
 
+--[=[
+	Mounts the client UI and wires input, history and network events.
+
+	@param ts The terminal service.
+]=]
 function Display.Mount(ts)
 	terminalService = ts
-	if not RunService:IsClient() then return end
+	if not RunService:IsClient() then
+		return
+	end
 
 	createUI()
 
@@ -534,27 +672,40 @@ function Display.Mount(ts)
 			if input.KeyCode == Enum.KeyCode.Up or input.KeyCode == Enum.KeyCode.Down then
 				local isUp = (input.KeyCode == Enum.KeyCode.Up)
 
+				--[=[
+					Moves through suggestions or history for an arrow key press.
+				]=]
 				local function action()
 					local hasSuggestions = autocompleteDropdown.Visible and #activeSuggestions > 0
-					local ctrlPressed = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+					local ctrlPressed = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+						or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
 
 					if hasSuggestions and not ctrlPressed then
-						local newIndex = isUp and (selectedSuggestionIndex - 1) or (selectedSuggestionIndex + 1)
-						if newIndex < 1 then newIndex = #activeSuggestions end
-						if newIndex > #activeSuggestions then newIndex = 1 end
+						local newIndex = isUp and (selectedSuggestionIndex - 1)
+							or (selectedSuggestionIndex + 1)
+						if newIndex < 1 then
+							newIndex = #activeSuggestions
+						end
+						if newIndex > #activeSuggestions then
+							newIndex = 1
+						end
 						highlightSuggestion(newIndex)
 					else
 						if isUp then
 							if historyIndex > 1 then
 								historyIndex -= 1
 								inputBar.Text = commandHistory[historyIndex]
-								task.defer(function() inputBar.CursorPosition = #inputBar.Text + 1 end)
+								task.defer(function()
+									inputBar.CursorPosition = #inputBar.Text + 1
+								end)
 							end
 						else
 							if historyIndex < #commandHistory then
 								historyIndex += 1
 								inputBar.Text = commandHistory[historyIndex]
-								task.defer(function() inputBar.CursorPosition = #inputBar.Text + 1 end)
+								task.defer(function()
+									inputBar.CursorPosition = #inputBar.Text + 1
+								end)
 							elseif historyIndex == #commandHistory then
 								historyIndex = #commandHistory + 1
 								inputBar.Text = ""
@@ -570,8 +721,13 @@ function Display.Mount(ts)
 
 				task.spawn(function()
 					task.wait(0.4)
-					while inputCounters[input.KeyCode] == counter and UserInputService:IsKeyDown(input.KeyCode) do
-						if not isVisible or UserInputService:GetFocusedTextBox() ~= inputBar then break end
+					while
+						inputCounters[input.KeyCode] == counter
+						and UserInputService:IsKeyDown(input.KeyCode)
+					do
+						if not isVisible or UserInputService:GetFocusedTextBox() ~= inputBar then
+							break
+						end
 						action()
 						task.wait(0.05)
 					end
@@ -611,8 +767,12 @@ function Display.Mount(ts)
 	end)
 
 	local isInteracting = false
-	autocompleteDropdown.MouseEnter:Connect(function() isInteracting = true end)
-	autocompleteDropdown.MouseLeave:Connect(function() isInteracting = false end)
+	autocompleteDropdown.MouseEnter:Connect(function()
+		isInteracting = true
+	end)
+	autocompleteDropdown.MouseLeave:Connect(function()
+		isInteracting = false
+	end)
 
 	inputBar.FocusLost:Connect(function(enterPressed)
 		if not enterPressed then
@@ -630,7 +790,8 @@ function Display.Mount(ts)
 		inputBar.Text = ""
 
 		if line == "" then
-			-- isVisible, as below: an empty line sent just before closing took focus back in a hidden terminal
+			-- isVisible, as below: an empty line sent just before closing took
+			-- focus back in a hidden terminal
 			task.defer(function()
 				if isVisible then
 					inputBar:CaptureFocus()
@@ -663,7 +824,8 @@ function Display.Mount(ts)
 
 	RunService.RenderStepped:Connect(function()
 		if isVisible and expectedDropdownVisible then
-			local isAtBottom = mainFrame.CanvasPosition.Y >= (mainFrame.AbsoluteCanvasSize.Y - mainFrame.AbsoluteWindowSize.Y - 25)
+			local isAtBottom = mainFrame.CanvasPosition.Y
+				>= (mainFrame.AbsoluteCanvasSize.Y - mainFrame.AbsoluteWindowSize.Y - 25)
 			if isAtBottom then
 				if not autocompleteDropdown.Visible then
 					autocompleteDropdown.Visible = true
@@ -675,7 +837,8 @@ function Display.Mount(ts)
 				autocompleteDropdown.Visible = false
 			end
 		elseif not expectedDropdownVisible and autocompleteDropdown.Visible then
-			-- written only when it changes: this ran on every frame of every client, terminal closed
+			-- written only when it changes: this ran on every frame of every
+			-- client, terminal closed
 			autocompleteDropdown.Visible = false
 		end
 	end)
@@ -691,13 +854,21 @@ function Display.Mount(ts)
 				local msg, kind = data.Message, data.Kind or "Normal"
 				local k = string.lower(kind or "Normal")
 				local color
-				if k == "error" then color = Color3.fromRGB(255, 100, 100)
-				elseif k == "success" then color = Color3.fromRGB(100, 230, 130)
-				elseif k == "info" then color = Color3.fromRGB(120, 200, 255)
-				elseif k == "message" then color = Color3.fromRGB(255, 220, 100)
-				elseif k == "hint" then color = Color3.fromRGB(180, 180, 220)
-				elseif k == "pm" or k == "whisper" then color = Color3.fromRGB(220, 180, 255)
-				else color = Color3.fromRGB(255, 255, 255) end
+				if k == "error" then
+					color = Color3.fromRGB(255, 100, 100)
+				elseif k == "success" then
+					color = Color3.fromRGB(100, 230, 130)
+				elseif k == "info" then
+					color = Color3.fromRGB(120, 200, 255)
+				elseif k == "message" then
+					color = Color3.fromRGB(255, 220, 100)
+				elseif k == "hint" then
+					color = Color3.fromRGB(180, 180, 220)
+				elseif k == "pm" or k == "whisper" then
+					color = Color3.fromRGB(220, 180, 255)
+				else
+					color = Color3.fromRGB(255, 255, 255)
+				end
 				printToConsole(`[{kind}] {msg}`, color)
 			elseif action == "SystemChat" then
 				local message = ...

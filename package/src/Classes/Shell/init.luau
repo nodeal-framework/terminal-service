@@ -32,22 +32,41 @@ local Glob = require(script.Parent.Parent.Classes.Glob)
 local CommandContext = require(script.Parent.Parent.Classes.CommandContext)
 local Builtins = require(script.Builtins)
 
-local Shell = {}
-Shell.__index = Shell
-
 local MAX_STEPS = 20000
 local MAX_OUTPUT = 16384
 local MAX_DEPTH = 32
 
+local Shell = {}
+Shell.__index = Shell
+
+--[=[
+	Joins two output strings, adding a newline only when needed.
+
+	@param a The first value.
+	@param b The second value.
+
+	@return The resulting text.
+]=]
 local function joinOutput(a: string?, b: string?): string
-	if a == nil or a == "" then return b or "" end
-	if b == nil or b == "" then return a end
+	if a == nil or a == "" then
+		return b or ""
+	end
+	if b == nil or b == "" then
+		return a
+	end
 	if string.sub(a, -1) == "\n" then
 		return a .. b
 	end
 	return a .. "\n" .. b
 end
 
+--[=[
+	Joins a list of output strings.
+
+	@param parts The parts to combine.
+
+	@return The resulting text.
+]=]
 local function joinMany(parts: { string }): string
 	local out = ""
 	for _, part in parts do
@@ -56,15 +75,30 @@ local function joinMany(parts: { string }): string
 	return out
 end
 
--- Shell control signals (break/continue/return) keep any output produced earlier in the body.
-local function rethrow(errObj, output: string?, err: string?)
+-- Shell control signals (break/continue/return) keep any output produced
+-- earlier in the body.
+--[=[
+	Rethrows a shell control signal while preserving its output.
+
+	@param errObj The shell control signal that was raised.
+	@param output The output produced before the signal.
+	@param errorValue The error value to inspect.
+]=]
+local function rethrow(errObj, output: string?, errorValue: string?)
 	if type(errObj) == "table" and errObj.__shellControl then
 		errObj.Output = joinOutput(output, errObj.Output)
-		errObj.Errors = joinOutput(err, errObj.Errors)
+		errObj.Errors = joinOutput(errorValue, errObj.Errors)
 	end
 	error(errObj, 0)
 end
 
+--[=[
+	Truncates captured output to the shell limit.
+
+	@param text The text to inspect.
+
+	@return The resulting text.
+]=]
 local function cap(text: string?): string
 	text = text or ""
 	if #text > MAX_OUTPUT then
@@ -73,8 +107,17 @@ local function cap(text: string?): string
 	return text
 end
 
+--[=[
+	Returns the plain text of a word token.
+
+	@param token The token to inspect.
+
+	@return The resulting text, or nil.
+]=]
 local function tokenText(token): string?
-	if not token or token.Type ~= "word" then return nil end
+	if not token or token.Type ~= "word" then
+		return nil
+	end
 	local parts = {}
 	for _, part in token.Parts or {} do
 		table.insert(parts, part.Text)
@@ -82,16 +125,28 @@ local function tokenText(token): string?
 	return table.concat(parts)
 end
 
--- `while read ...` must advance through stdin, not re-read the first line forever.
+-- `while read ...` must advance through stdin, not re-read the first line
+-- forever.
+--[=[
+	Returns the `read` command of a `while read` condition, if any.
+
+	@param node The syntax tree node to evaluate.
+
+	@return The result, or nil.
+]=]
 local function readCondition(node): any?
-	if not node then return nil end
+	if not node then
+		return nil
+	end
 
 	local command = node
 	if node.type == "Pipeline" then
 		command = node.Commands[#node.Commands]
 	end
 
-	if not command or command.type ~= "Simple" then return nil end
+	if not command or command.type ~= "Simple" then
+		return nil
+	end
 
 	for _, token in command.Words do
 		return if tokenText(token) == "read" then command else nil
@@ -100,6 +155,13 @@ local function readCondition(node): any?
 	return nil
 end
 
+--[=[
+	Splits text into lines, keeping the final unterminated line.
+
+	@param text The text to inspect.
+
+	@return The resulting list.
+]=]
 local function splitLines(text: string): { string }
 	local lines = {}
 	for line in string.gmatch(text, "([^\n]*)\n") do
@@ -112,6 +174,14 @@ local function splitLines(text: string): { string }
 	return lines
 end
 
+--[=[
+	Creates a shell for one player or for the server.
+
+	@param service The terminal service.
+	@param executor The player running the command.
+
+	@return The new shell.
+]=]
 function Shell.new(service, executor)
 	local self = setmetatable({}, Shell)
 
@@ -190,22 +260,52 @@ function Shell.new(service, executor)
 	self.Vars.LANG = "C"
 	self.Vars.LC_ALL = "C"
 
-	for _, name in { "HOME", "PWD", "OLDPWD", "PATH", "USER", "LOGNAME", "SHELL", "HOSTNAME", "TERM", "SHLVL", "LANG", "LC_ALL" } do
+	for _, name in
+		{
+			"HOME",
+			"PWD",
+			"OLDPWD",
+			"PATH",
+			"USER",
+			"LOGNAME",
+			"SHELL",
+			"HOSTNAME",
+			"TERM",
+			"SHLVL",
+			"LANG",
+			"LC_ALL",
+		}
+	do
 		self.Exported[name] = true
 	end
 
 	return self
 end
 
+--[=[
+	Creates a copy of the shell for command substitution.
+
+	@return The new shell.
+]=]
 function Shell:Clone()
 	local self2 = setmetatable({}, Shell)
 	for key, value in self do
 		if key == "Jobs" then
 			self2.Jobs = {}
-		elseif key == "Vars" or key == "Exported" or key == "Aliases" or key == "Functions"
-			or key == "Readonly" or key == "Traps" or key == "Options" or key == "History"
-			or key == "Positional" or key == "FuncStack" or key == "PipeStatuses"
-			or key == "LocalFrames" then
+		elseif
+			key == "Vars"
+			or key == "Exported"
+			or key == "Aliases"
+			or key == "Functions"
+			or key == "Readonly"
+			or key == "Traps"
+			or key == "Options"
+			or key == "History"
+			or key == "Positional"
+			or key == "FuncStack"
+			or key == "PipeStatuses"
+			or key == "LocalFrames"
+		then
 			self2[key] = table.clone(value)
 		elseif key == "Arrays" then
 			local arrays = {}
@@ -230,6 +330,13 @@ end
 
 --// State //--
 
+--[=[
+	Reads a variable, checking local frames first.
+
+	@param name The name to look up.
+
+	@return The resulting text, or nil.
+]=]
 function Shell:GetVar(name: string): string?
 	for index = #self.LocalFrames, 1, -1 do
 		local frame = self.LocalFrames[index]
@@ -268,6 +375,13 @@ function Shell:GetVar(name: string): string?
 	return nil
 end
 
+--[=[
+	Assigns a variable and marks it exported when requested.
+
+	@param name The name to look up.
+	@param value The value to convert.
+	@param exported Whether to print only exported variables.
+]=]
 function Shell:SetVar(name: string, value: any, exported: boolean?)
 	if self.Readonly[name] then
 		error(`${name}: readonly variable`, 0)
@@ -296,6 +410,12 @@ function Shell:SetVar(name: string, value: any, exported: boolean?)
 	end
 end
 
+--[=[
+	Declares a variable in the innermost function frame.
+
+	@param name The name to look up.
+	@param value The value to convert.
+]=]
 function Shell:SetLocal(name: string, value: any)
 	local frame = self.LocalFrames[#self.LocalFrames]
 	if not frame then
@@ -307,22 +427,49 @@ function Shell:SetLocal(name: string, value: any)
 	frame[name] = if value == nil then "" else tostring(value)
 end
 
+--[=[
+	Returns the current positional parameters.
+
+	@return The resulting list.
+]=]
 function Shell:GetPositional(): { string }
 	return self.Positional
 end
 
+--[=[
+	Formats the active shell options as `set` flags.
+
+	@return The resulting text.
+]=]
 function Shell:OptionFlags(): string
 	local flags = {}
-	if self.Options.errexit then table.insert(flags, "e") end
-	if self.Options.nounset then table.insert(flags, "u") end
-	if self.Options.xtrace then table.insert(flags, "x") end
-	if self.Options.noglob then table.insert(flags, "f") end
-	if self.Options.noclobber then table.insert(flags, "C") end
-	if self.Options.monitor then table.insert(flags, "m") end
-	if self.Options.history then table.insert(flags, "h") end
+	if self.Options.errexit then
+		table.insert(flags, "e")
+	end
+	if self.Options.nounset then
+		table.insert(flags, "u")
+	end
+	if self.Options.xtrace then
+		table.insert(flags, "x")
+	end
+	if self.Options.noglob then
+		table.insert(flags, "f")
+	end
+	if self.Options.noclobber then
+		table.insert(flags, "C")
+	end
+	if self.Options.monitor then
+		table.insert(flags, "m")
+	end
+	if self.Options.history then
+		table.insert(flags, "h")
+	end
 	return "hB" .. table.concat(flags)
 end
 
+--[=[
+	Counts an evaluation step and enforces the execution limit.
+]=]
 function Shell:Step()
 	self.Steps += 1
 	if self.Steps > self.MaxSteps then
@@ -332,10 +479,24 @@ end
 
 --// Expansion callbacks //--
 
+--[=[
+	Expands a string without word splitting.
+
+	@param text The text to inspect.
+
+	@return The resulting text.
+]=]
 function Shell:ExpandInline(text: string): string
 	return Expander.expandStringSingle(text, self)
 end
 
+--[=[
+	Evaluates an arithmetic expression.
+
+	@param expression The expression to evaluate.
+
+	@return The resulting number.
+]=]
 function Shell:Arithmetic(expression: string): number
 	local success, result = pcall(Arithmetic.eval, expression, self)
 	if not success then
@@ -344,6 +505,13 @@ function Shell:Arithmetic(expression: string): number
 	return result
 end
 
+--[=[
+	Runs a command in a child shell and captures its output.
+
+	@param text The text to inspect.
+
+	@return The resulting text.
+]=]
 function Shell:CommandSubstitute(text: string): string
 	if self.SubDepth >= MAX_DEPTH then
 		error("command substitution nested too deeply", 0)
@@ -352,7 +520,7 @@ function Shell:CommandSubstitute(text: string): string
 	local sub = self:Clone()
 	sub.SubDepth = self.SubDepth + 1
 
-	local ok, code, output, err = pcall(sub.RunString, sub, text, "")
+	local ok, code, output, errorValue = pcall(sub.RunString, sub, text, "")
 	self.Steps = math.max(self.Steps, sub.Steps)
 
 	if not ok then
@@ -364,8 +532,8 @@ function Shell:CommandSubstitute(text: string): string
 
 	self.LastSubStatus = code or 0
 
-	if err and err ~= "" then
-		self.Service:PrintTo(self.Executor, err)
+	if errorValue and errorValue ~= "" then
+		self.Service:PrintTo(self.Executor, errorValue)
 	end
 
 	return (string.gsub(output or "", "\n+$", ""))
@@ -373,9 +541,21 @@ end
 
 --// Output redirection //--
 
+--[=[
+	Collects the players named by a redirection target.
+
+	@param target The target of the operation.
+
+	@return The resulting list.
+]=]
 local function collectPlayers(target: any): { Player }
 	local players = {}
 
+	--[=[
+		Adds a value to the player list when it is a Player instance.
+
+		@param value The value to convert.
+	]=]
 	local function add(value)
 		if typeof(value) == "Instance" and value:IsA("Player") then
 			table.insert(players, value)
@@ -384,9 +564,13 @@ local function collectPlayers(target: any): { Player }
 
 	if type(target) == "table" then
 		if target.__isMultiValue then
-			for _, value in target.Values do add(value) end
+			for _, value in target.Values do
+				add(value)
+			end
 		else
-			for _, value in target do add(value) end
+			for _, value in target do
+				add(value)
+			end
 		end
 	else
 		add(target)
@@ -395,6 +579,14 @@ local function collectPlayers(target: any): { Player }
 	return players
 end
 
+--[=[
+	Sends text to a player's terminal or to `/dev/null`.
+
+	@param text The text to inspect.
+	@param target The target of the operation.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:Redirect(text: string, target: string): (boolean, string?)
 	if target == "/dev/null" or text == "" then
 		return true, nil
@@ -447,7 +639,9 @@ function Shell:Redirect(text: string, target: string): (boolean, string?)
 	local payload = text
 	if others and self.Executor then
 		local success, filtered = pcall(function()
-			return TextService:FilterStringAsync(text, self.Executor.UserId, Enum.TextFilterContext.PublicChat):GetNonChatStringForBroadcastAsync()
+			return TextService
+				:FilterStringAsync(text, self.Executor.UserId, Enum.TextFilterContext.PublicChat)
+				:GetNonChatStringForBroadcastAsync()
 		end)
 		if not success or filtered == nil then
 			return false, "redirect: the text filter did not answer, nothing was sent"
@@ -468,21 +662,33 @@ function Shell:Redirect(text: string, target: string): (boolean, string?)
 end
 
 -- Here-document bodies with an unquoted delimiter behave like double quotes:
--- only `$`, `` ` `` and `\` can be escaped, and `\`-newline is a line continuation.
+-- only `$`, `` ` `` and `\` can be escaped, and `\`-newline is a line
+-- continuation.
+--[=[
+	Expands a here-document body.
+
+	@param body The here-document body.
+	@param shell The shell instance.
+
+	@return The resulting text.
+]=]
 local function expandHereDoc(body: string, shell): string
 	local parts = {}
-	local buf = {}
+	local buffer = {}
 
+	--[=[
+		Flushes the pending here-document text into the parts list.
+	]=]
 	local function flush()
-		if #buf > 0 then
-			table.insert(parts, { Text = table.concat(buf), Quote = 2 })
-			buf = {}
+		if #buffer > 0 then
+			table.insert(parts, { Text = table.concat(buffer), Quote = 2 })
+			buffer = {}
 		end
 	end
 
 	local i = 1
-	local len = #body
-	while i <= len do
+	local length = #body
+	while i <= length do
 		local c = string.sub(body, i, i)
 		if c == "\\" then
 			local n = string.sub(body, i + 1, i + 1)
@@ -493,11 +699,11 @@ local function expandHereDoc(body: string, shell): string
 				table.insert(parts, { Text = n, Quote = 1 })
 				i += 2
 			else
-				table.insert(buf, c)
+				table.insert(buffer, c)
 				i += 1
 			end
 		else
-			table.insert(buf, c)
+			table.insert(buffer, c)
 			i += 1
 		end
 	end
@@ -510,6 +716,14 @@ local function expandHereDoc(body: string, shell): string
 	return Expander.expandWordSingle({ Type = "word", Parts = parts, Quoted = true }, shell)
 end
 
+--[=[
+	Applies a command's redirections and returns its input.
+
+	@param redirects The redirections to apply.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:ApplyRedirects(redirects, stdin): (string, any)
 	local input = stdin
 	local outTarget = nil
@@ -580,19 +794,41 @@ end
 
 --// Commands //--
 
+--[=[
+	Splits an alias value into words.
+
+	@param value The value to convert.
+
+	@return The resulting list.
+]=]
 local function aliasWords(value: string): { string }
 	local words = {}
 	for _, token in Lexer.lex(value) do
 		if token.Type == "word" then
 			local text = {}
-			for _, part in token.Parts or {} do table.insert(text, part.Text) end
+			for _, part in token.Parts or {} do
+				table.insert(text, part.Text)
+			end
 			table.insert(words, table.concat(text))
 		end
 	end
 	return words
 end
 
-function Shell:RunFunction(name: string, args: { string }, stdin: string): (number, string, string)
+--[=[
+	Runs a shell function with its own positional parameters.
+
+	@param name The name to look up.
+	@param arguments The command arguments.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Shell:RunFunction(
+	name: string,
+	arguments: { string },
+	stdin: string
+): (number, string, string)
 	local body = self.Functions[name]
 	if not body then
 		return 127, "", `{name}: command not found`
@@ -603,7 +839,7 @@ function Shell:RunFunction(name: string, args: { string }, stdin: string): (numb
 	end
 
 	local savedPositional = self.Positional
-	self.Positional = table.clone(args)
+	self.Positional = table.clone(arguments)
 	self.FuncDepth += 1
 	table.insert(self.FuncStack, name)
 	table.insert(self.LocalFrames, {})
@@ -630,7 +866,20 @@ function Shell:RunFunction(name: string, args: { string }, stdin: string): (numb
 	return a or 0, b or "", c or ""
 end
 
-function Shell:ExecuteCommand(words: { string }, stdin: string, flags: any?): (number, string, string)
+--[=[
+	Resolves and runs one simple command.
+
+	@param words The command words.
+	@param stdin The piped standard input.
+	@param flags The formatting flags.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Shell:ExecuteCommand(
+	words: { string },
+	stdin: string,
+	flags: any?
+): (number, string, string)
 	if #words == 0 then
 		return 0, "", ""
 	end
@@ -642,22 +891,32 @@ function Shell:ExecuteCommand(words: { string }, stdin: string, flags: any?): (n
 		local seen = {}
 		while true do
 			local value = self.Aliases[name]
-			if not value or seen[name] then break end
+			if not value or seen[name] then
+				break
+			end
 			seen[name] = true
 
 			local replacement = aliasWords(value)
-			if #replacement == 0 then break end
+			if #replacement == 0 then
+				break
+			end
 
 			local nextWords = {}
-			for _, word in replacement do table.insert(nextWords, word) end
-			for index = 2, #words do table.insert(nextWords, words[index]) end
+			for _, word in replacement do
+				table.insert(nextWords, word)
+			end
+			for index = 2, #words do
+				table.insert(nextWords, words[index])
+			end
 			words = nextWords
 			name = words[1]
 		end
 	end
 
 	local rest = {}
-	for index = 2, #words do table.insert(rest, words[index]) end
+	for index = 2, #words do
+		table.insert(rest, words[index])
+	end
 
 	if not flags.noFunction and self.Functions[name] then
 		return self:RunFunction(name, rest, stdin)
@@ -685,14 +944,14 @@ function Shell:ExecuteCommand(words: { string }, stdin: string, flags: any?): (n
 	local command = self.Service:GetCommand(name)
 	if command then
 		local context = CommandContext.new(self.Executor, rest, stdin, self.Service, self)
-		local ok, err = pcall(function()
+		local ok, errorValue = pcall(function()
 			command:Execute(context, rest, self.Service)
 		end)
 		if not ok then
-			if type(err) == "table" and err.__shellControl then
-				error(err, 0)
+			if type(errorValue) == "table" and errorValue.__shellControl then
+				error(errorValue, 0)
 			end
-			return 1, "", `{name}: {tostring(err)}`
+			return 1, "", `{name}: {tostring(errorValue)}`
 		end
 
 		self.Status = context.Code
@@ -705,6 +964,14 @@ end
 
 --// Loops //--
 
+--[=[
+	Runs a loop body and normalises control signals.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunLoopBody(node, stdin)
 	local ok, a, b, c = pcall(self.RunNode, self, node, stdin)
 	if ok then
@@ -723,10 +990,21 @@ end
 
 --// AST //--
 
+--[=[
+	Runs a simple command, applying temporary assignments.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunSimple(node, stdin)
 	local saved = {}
 	self.LastSubStatus = 0
 
+	--[=[
+		Restores variables saved before a simple command.
+	]=]
 	local function restoreAssignments()
 		for name, previous in saved do
 			if previous.Present then
@@ -809,15 +1087,15 @@ function Shell:RunSimple(node, stdin)
 		return 1, "", tostring(assignmentError)
 	end
 
-	local code, output, err
+	local code, output, errorValue
 
 	if #words == 0 then
-		code, output, err = self.LastSubStatus, "", ""
+		code, output, errorValue = self.LastSubStatus, "", ""
 	else
-		code, output, err = self:ExecuteCommand(words, input or "")
+		code, output, errorValue = self:ExecuteCommand(words, input or "")
 
 		if self.Options.xtrace then
-			err = joinOutput(`+ {table.concat(words, " ")}`, err)
+			errorValue = joinOutput(`+ {table.concat(words, " ")}`, errorValue)
 		end
 
 		-- Prefix assignments only last for the command.
@@ -826,31 +1104,31 @@ function Shell:RunSimple(node, stdin)
 
 	if type(redirectInfo) == "table" then
 		if redirectInfo.OutToErr then
-			err = joinOutput(output, err)
+			errorValue = joinOutput(output, errorValue)
 			output = ""
 		end
 
 		if redirectInfo.MergeErr then
-			output = joinOutput(output, err)
-			err = ""
+			output = joinOutput(output, errorValue)
+			errorValue = ""
 		end
 
 		if redirectInfo.Out then
 			local success, message = self:Redirect(output, redirectInfo.Out)
 			if not success then
-				err = joinOutput(err, message)
+				errorValue = joinOutput(errorValue, message)
 				code = 1
 			end
 			output = ""
 		end
 
 		if redirectInfo.Err then
-			local success, message = self:Redirect(err, redirectInfo.Err)
+			local success, message = self:Redirect(errorValue, redirectInfo.Err)
 			if not success then
-				err = joinOutput(err, message)
+				errorValue = joinOutput(errorValue, message)
 				code = 1
 			end
-			err = ""
+			errorValue = ""
 		end
 	elseif type(redirectInfo) == "string" then
 		return 1, "", redirectInfo
@@ -859,12 +1137,25 @@ function Shell:RunSimple(node, stdin)
 	self.Status = code
 	if self.ExitRequested then
 		self.Status = self.ExitRequested
-	elseif self.Options.errexit and code ~= 0 and self.ConditionDepth == 0 and self.NoErrexit == 0 then
+	elseif
+		self.Options.errexit
+		and code ~= 0
+		and self.ConditionDepth == 0
+		and self.NoErrexit == 0
+	then
 		self.ExitRequested = code
 	end
-	return code, output, err
+	return code, output, errorValue
 end
 
+--[=[
+	Runs a pipeline and connects each stage's output to the next.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunPipeline(node, stdin)
 	local started = os.clock()
 	local input = stdin
@@ -872,18 +1163,18 @@ function Shell:RunPipeline(node, stdin)
 	local statuses = {}
 
 	for index, command in node.Commands do
-		local ok, code, output, err = pcall(self.RunNode, self, command, input)
+		local ok, code, output, errorValue = pcall(self.RunNode, self, command, input)
 		if not ok then
 			rethrow(code, nil, joinMany(errors))
 		end
 		statuses[index] = code
 
 		if node.PipeErr[index] then
-			input = joinOutput(output, err)
+			input = joinOutput(output, errorValue)
 		else
 			input = output or ""
-			if err and err ~= "" then
-				table.insert(errors, err)
+			if errorValue and errorValue ~= "" then
+				table.insert(errors, errorValue)
 			end
 		end
 
@@ -897,7 +1188,9 @@ function Shell:RunPipeline(node, stdin)
 	if self.Options.pipefail then
 		code = 0
 		for _, status in statuses do
-			if status ~= 0 then code = status end
+			if status ~= 0 then
+				code = status
+			end
 		end
 	end
 
@@ -914,24 +1207,35 @@ function Shell:RunPipeline(node, stdin)
 	self.Status = if self.ExitRequested then self.ExitRequested else code
 
 	local elapsed = os.clock() - started
-	local err = joinMany(errors)
+	local errorValue = joinMany(errors)
 
 	if node.Time then
-		local formatted = string.format(
-			"real\t0m%.3fs\nuser\t0m%.3fs\nsys\t0m0.000s",
-			elapsed,
-			elapsed
-		)
-		err = joinOutput(err, formatted)
+		local formatted =
+			string.format("real\t0m%.3fs\nuser\t0m%.3fs\nsys\t0m0.000s", elapsed, elapsed)
+		errorValue = joinOutput(errorValue, formatted)
 	end
 
-	if self.Options.errexit and code ~= 0 and self.ConditionDepth == 0 and self.NoErrexit == 0 and not self.ExitRequested then
+	if
+		self.Options.errexit
+		and code ~= 0
+		and self.ConditionDepth == 0
+		and self.NoErrexit == 0
+		and not self.ExitRequested
+	then
 		self.ExitRequested = code
 	end
 
-	return code, input or "", err
+	return code, input or "", errorValue
 end
 
+--[=[
+	Runs `&&` and `||` lists.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunAndOr(node, stdin)
 	self.NoErrexit += 1
 	local ok1, c1, o1, e1 = pcall(self.RunNode, self, node.Left, stdin)
@@ -956,6 +1260,11 @@ function Shell:RunAndOr(node, stdin)
 	return c2, joinOutput(o1, o2), joinOutput(e1, e2)
 end
 
+--[=[
+	Starts a job in the background.
+
+	@param node The syntax tree node to evaluate.
+]=]
 function Shell:RunBackground(node)
 	self.JobSeq += 1
 	local id = self.JobSeq
@@ -972,13 +1281,13 @@ function Shell:RunBackground(node)
 
 	local child = self:Clone()
 	task.spawn(function()
-		local ok, code, output, err = pcall(child.RunNode, child, node, "")
+		local ok, code, output, errorValue = pcall(child.RunNode, child, node, "")
 		job.Done = true
 		job.Code = if ok then code or 0 else 1
 		job.Output = output or ""
 
-		if err and err ~= "" then
-			child.Service:PrintTo(child.Executor, err)
+		if errorValue and errorValue ~= "" then
+			child.Service:PrintTo(child.Executor, errorValue)
 		end
 		if job.Output ~= "" then
 			child.Service:PrintTo(child.Executor, job.Output)
@@ -986,6 +1295,14 @@ function Shell:RunBackground(node)
 	end)
 end
 
+--[=[
+	Runs a `;` or `&` list.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunList(node, stdin)
 	if node.Op == "&" then
 		self:RunBackground(node.Left)
@@ -1010,19 +1327,27 @@ function Shell:RunList(node, stdin)
 	return c2, joinOutput(o1, o2), joinOutput(e1, e2)
 end
 
+--[=[
+	Runs an `if`, `elif` and `else` chain.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunIf(node, stdin)
 	for _, branch in node.Branches do
 		self.ConditionDepth += 1
-		local code, out, err = self:RunNode(branch.Condition, stdin)
+		local code, out, errorValue = self:RunNode(branch.Condition, stdin)
 		self.ConditionDepth -= 1
 
 		if code == 0 then
 			local c, o, e = self:RunNode(branch.Body, stdin)
-			return c, joinOutput(out, o), joinOutput(err, e)
+			return c, joinOutput(out, o), joinOutput(errorValue, e)
 		end
 
 		if self.ExitRequested then
-			return code, out, err
+			return code, out, errorValue
 		end
 	end
 
@@ -1033,6 +1358,14 @@ function Shell:RunIf(node, stdin)
 	return 0, "", ""
 end
 
+--[=[
+	Runs a `while` or `until` loop.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunWhile(node, stdin)
 	local outputs = {}
 	local errors = {}
@@ -1046,26 +1379,39 @@ function Shell:RunWhile(node, stdin)
 		while index <= #lines do
 			self:Step()
 
-			local remaining = if index < #lines then table.concat(lines, "\n", index + 1) .. "\n" else ""
+			local remaining = if index < #lines
+				then table.concat(lines, "\n", index + 1) .. "\n"
+				else ""
 
 			self.ConditionDepth += 1
-			local conditionCode, condOut, condErr = self:RunNode(node.Condition, lines[index] .. "\n")
+			local conditionCode, condOut, condErr =
+				self:RunNode(node.Condition, lines[index] .. "\n")
 			self.ConditionDepth -= 1
 
-			if condOut ~= "" then table.insert(outputs, condOut) end
-			if condErr ~= "" then table.insert(errors, condErr) end
+			if condOut ~= "" then
+				table.insert(outputs, condOut)
+			end
+			if condErr ~= "" then
+				table.insert(errors, condErr)
+			end
 
 			if self.ExitRequested then
 				return self.ExitRequested, joinMany(outputs), joinMany(errors)
 			end
 
 			local keepGoing = if node.Until then conditionCode ~= 0 else conditionCode == 0
-			if not keepGoing then break end
+			if not keepGoing then
+				break
+			end
 
-			local code, out, err, control = self:RunLoopBody(node.Body, remaining)
+			local code, out, errorValue, control = self:RunLoopBody(node.Body, remaining)
 			lastCode = code
-			if out ~= "" then table.insert(outputs, out) end
-			if err ~= "" then table.insert(errors, err) end
+			if out ~= "" then
+				table.insert(outputs, out)
+			end
+			if errorValue ~= "" then
+				table.insert(errors, errorValue)
+			end
 
 			if self.ExitRequested then
 				return self.ExitRequested, joinMany(outputs), joinMany(errors)
@@ -1099,20 +1445,30 @@ function Shell:RunWhile(node, stdin)
 		local conditionCode, condOut, condErr = self:RunNode(node.Condition, stdin)
 		self.ConditionDepth -= 1
 
-		if condOut ~= "" then table.insert(outputs, condOut) end
-		if condErr ~= "" then table.insert(errors, condErr) end
+		if condOut ~= "" then
+			table.insert(outputs, condOut)
+		end
+		if condErr ~= "" then
+			table.insert(errors, condErr)
+		end
 
 		if self.ExitRequested then
 			return self.ExitRequested, joinMany(outputs), joinMany(errors)
 		end
 
 		local keepGoing = if node.Until then conditionCode ~= 0 else conditionCode == 0
-		if not keepGoing then break end
+		if not keepGoing then
+			break
+		end
 
-		local code, out, err, control = self:RunLoopBody(node.Body, stdin)
+		local code, out, errorValue, control = self:RunLoopBody(node.Body, stdin)
 		lastCode = code
-		if out ~= "" then table.insert(outputs, out) end
-		if err ~= "" then table.insert(errors, err) end
+		if out ~= "" then
+			table.insert(outputs, out)
+		end
+		if errorValue ~= "" then
+			table.insert(errors, errorValue)
+		end
 
 		if self.ExitRequested then
 			return self.ExitRequested, joinMany(outputs), joinMany(errors)
@@ -1138,8 +1494,18 @@ function Shell:RunWhile(node, stdin)
 	return lastCode, joinMany(outputs), joinMany(errors)
 end
 
+--[=[
+	Runs a `for` loop over words or positional parameters.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunFor(node, stdin)
-	local items = if node.HasIn then Expander.expandWords(node.Words, self) else table.clone(self.Positional)
+	local items = if node.HasIn
+		then Expander.expandWords(node.Words, self)
+		else table.clone(self.Positional)
 	local outputs = {}
 	local errors = {}
 	local lastCode = 0
@@ -1147,10 +1513,14 @@ function Shell:RunFor(node, stdin)
 	for _, item in items do
 		self:SetVar(node.Name, item)
 
-		local code, out, err, control = self:RunLoopBody(node.Body, stdin)
+		local code, out, errorValue, control = self:RunLoopBody(node.Body, stdin)
 		lastCode = code
-		if out ~= "" then table.insert(outputs, out) end
-		if err ~= "" then table.insert(errors, err) end
+		if out ~= "" then
+			table.insert(outputs, out)
+		end
+		if errorValue ~= "" then
+			table.insert(errors, errorValue)
+		end
 
 		if self.ExitRequested then
 			return self.ExitRequested, joinMany(outputs), joinMany(errors)
@@ -1176,6 +1546,14 @@ function Shell:RunFor(node, stdin)
 	return lastCode, joinMany(outputs), joinMany(errors)
 end
 
+--[=[
+	Runs a C-style arithmetic `for` loop.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunForArith(node, stdin)
 	local outputs = {}
 	local errors = {}
@@ -1188,10 +1566,14 @@ function Shell:RunForArith(node, stdin)
 	while node.Cond == "" or self:Arithmetic(node.Cond) ~= 0 do
 		self:Step()
 
-		local code, out, err, control = self:RunLoopBody(node.Body, stdin)
+		local code, out, errorValue, control = self:RunLoopBody(node.Body, stdin)
 		lastCode = code
-		if out ~= "" then table.insert(outputs, out) end
-		if err ~= "" then table.insert(errors, err) end
+		if out ~= "" then
+			table.insert(outputs, out)
+		end
+		if errorValue ~= "" then
+			table.insert(errors, errorValue)
+		end
 
 		if self.ExitRequested then
 			return self.ExitRequested, joinMany(outputs), joinMany(errors)
@@ -1218,7 +1600,16 @@ function Shell:RunForArith(node, stdin)
 	return lastCode, joinMany(outputs), joinMany(errors)
 end
 
-function Shell:RunCase(node, stdin)	local word = Expander.expandWordSingle(node.Word, self)
+--[=[
+	Runs a `case` statement.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Shell:RunCase(node, stdin)
+	local word = Expander.expandWordSingle(node.Word, self)
 	local outputs = {}
 	local errors = {}
 	local code = 0
@@ -1238,10 +1629,14 @@ function Shell:RunCase(node, stdin)	local word = Expander.expandWordSingle(node.
 		end
 
 		if run then
-			local c, out, err = self:RunNode(item.Body, stdin)
+			local c, out, errorValue = self:RunNode(item.Body, stdin)
 			code = c
-			if out ~= "" then table.insert(outputs, out) end
-			if err ~= "" then table.insert(errors, err) end
+			if out ~= "" then
+				table.insert(outputs, out)
+			end
+			if errorValue ~= "" then
+				table.insert(errors, errorValue)
+			end
 
 			if self.ExitRequested then
 				return self.ExitRequested, joinMany(outputs), joinMany(errors)
@@ -1262,40 +1657,56 @@ function Shell:RunCase(node, stdin)	local word = Expander.expandWordSingle(node.
 	return code, joinMany(outputs), joinMany(errors)
 end
 
+--[=[
+	Runs a compound command with its redirections.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunRedirectNode(node, stdin)
 	local input, redirectInfo = self:ApplyRedirects(node.Redirects, stdin)
-	local code, output, err = self:RunNode(node.Command or node.Body, input)
+	local code, output, errorValue = self:RunNode(node.Command or node.Body, input)
 
 	if type(redirectInfo) == "table" then
 		if redirectInfo.OutToErr then
-			err = joinOutput(output, err)
+			errorValue = joinOutput(output, errorValue)
 			output = ""
 		end
 		if redirectInfo.MergeErr then
-			output = joinOutput(output, err)
-			err = ""
+			output = joinOutput(output, errorValue)
+			errorValue = ""
 		end
 		if redirectInfo.Out then
 			local success, message = self:Redirect(output, redirectInfo.Out)
 			if not success then
-				err = joinOutput(err, message)
+				errorValue = joinOutput(errorValue, message)
 				code = 1
 			end
 			output = ""
 		end
 		if redirectInfo.Err then
-			local success, message = self:Redirect(err, redirectInfo.Err)
+			local success, message = self:Redirect(errorValue, redirectInfo.Err)
 			if not success then
-				err = joinOutput(err, message)
+				errorValue = joinOutput(errorValue, message)
 				code = 1
 			end
-			err = ""
+			errorValue = ""
 		end
 	end
 
-	return code, output, err
+	return code, output, errorValue
 end
 
+--[=[
+	Dispatches an AST node to its evaluator.
+
+	@param node The syntax tree node to evaluate.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunNode(node, stdin): (number, string, string)
 	if not node then
 		return 0, "", ""
@@ -1305,7 +1716,8 @@ function Shell:RunNode(node, stdin): (number, string, string)
 
 	local kind = node.type
 
-	-- Redirections after a compound command (`while ...; done <<EOF`, `if ...; fi > out`).
+	-- Redirections after a compound command (`while ...; done <<EOF`,
+	-- `if ...; fi > out`).
 	if node.Redirects and kind ~= "Simple" and kind ~= "Group" then
 		local inner = table.clone(node)
 		inner.Redirects = nil
@@ -1345,9 +1757,9 @@ function Shell:RunNode(node, stdin): (number, string, string)
 		return self:RunNode(node.Body, stdin)
 	elseif kind == "Subshell" then
 		local child = self:Clone()
-		local code, output, err = child:RunNode(node.Body, stdin)
+		local code, output, errorValue = child:RunNode(node.Body, stdin)
 		self.Steps = math.max(self.Steps, child.Steps)
-		return code, output, err
+		return code, output, errorValue
 	end
 
 	return 1, "", `unknown AST node: {tostring(kind)}`
@@ -1355,6 +1767,14 @@ end
 
 --// Entry points //--
 
+--[=[
+	Parses and runs a line of shell input.
+
+	@param line The line to process.
+	@param stdin The piped standard input.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunString(line: string, stdin: string?): (number, string, string)
 	local tokens = Lexer.lex(line)
 	local ast = Parser.parse(tokens)
@@ -1364,6 +1784,13 @@ function Shell:RunString(line: string, stdin: string?): (number, string, string)
 	return self:RunNode(ast, stdin or "")
 end
 
+--[=[
+	Resets per-line state and runs one input line.
+
+	@param line The line to process.
+
+	@return The exit status, standard output and standard error.
+]=]
 function Shell:RunLine(line: string): (number, string, string)
 	self.Steps = 0
 	self.PipeStatuses = {}

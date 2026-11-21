@@ -40,17 +40,41 @@ export type Token = {
 	Quoted: boolean?,
 }
 
+--[=[
+	Checks whether a character is shell whitespace.
+
+	@param c The character to test.
+
+	@return True when the condition holds.
+]=]
 local function isBlank(c: string): boolean
 	return c == " " or c == "\t" or c == "\r" or c == "\n"
 end
 
+--[=[
+	Checks whether a character can start an operator.
+
+	@param c The character to test.
+
+	@return True when the condition holds.
+]=]
 local function isOperatorStart(c: string): boolean
 	return c == "|" or c == "&" or c == ">" or c == "<" or c == ";" or c == "(" or c == ")"
 end
 
--- Longest match first. The `%d+` forms are redirections with an explicit file descriptor.
+-- Longest match first. The `%d+` forms are redirections with an explicit
+-- file descriptor.
 local REDIRECT_OPS = { "<<<", "<<-", "<<", ">>", "<>", ">&", ">", "<" }
 
+--[=[
+	Matches the longest operator at a position, including file descriptors.
+
+	@param input The input to process.
+	@param i The position to start at.
+	@param atWordStart Whether the operator starts a word.
+
+	@return The resulting text, or nil.
+]=]
 local function matchOperator(input: string, i: number, atWordStart: boolean): string?
 	local rest = string.sub(input, i)
 
@@ -73,23 +97,48 @@ local function matchOperator(input: string, i: number, atWordStart: boolean): st
 	end
 
 	local two = string.sub(rest, 1, 2)
-	if two == "&&" or two == "||" or two == "|&" or two == ">>" or two == ">&"
-		or two == "&>" or two == "<<" or two == "<>" or two == ";;" or two == ">|"
-		or two == ";&" then
+	if
+		two == "&&"
+		or two == "||"
+		or two == "|&"
+		or two == ">>"
+		or two == ">&"
+		or two == "&>"
+		or two == "<<"
+		or two == "<>"
+		or two == ";;"
+		or two == ">|"
+		or two == ";&"
+	then
 		return two
 	end
 
 	local one = string.sub(rest, 1, 1)
-	if one == ";" or one == "|" or one == "&" or one == "<" or one == ">"
-		or one == "(" or one == ")" then
+	if
+		one == ";"
+		or one == "|"
+		or one == "&"
+		or one == "<"
+		or one == ">"
+		or one == "("
+		or one == ")"
+	then
 		return one
 	end
 
 	return nil
 end
 
--- Copy a balanced `$(...)` / `$((...))` group. Quotes and backslashes inside are respected,
--- so `$(echo ")")` does not end at the quoted parenthesis.
+-- Copy a balanced `$(...)` / `$((...))` group. Quotes and backslashes inside
+-- are respected, so `$(echo ")")` does not end at the quoted parenthesis.
+--[=[
+	Skips a parenthesised group, respecting quotes and nesting.
+
+	@param input The input to process.
+	@param startIdx The index to start scanning from.
+
+	@return The resulting number.
+]=]
 local function consumeParen(input: string, startIdx: number): number
 	local depth = 0
 	local i = startIdx
@@ -100,7 +149,9 @@ local function consumeParen(input: string, startIdx: number): number
 		local c = string.sub(input, i, i)
 
 		if quote == 1 then
-			if c == "'" then quote = 0 end
+			if c == "'" then
+				quote = 0
+			end
 		elseif quote == 2 then
 			if c == "\\" then
 				i += 1
@@ -131,7 +182,9 @@ local function consumeParen(input: string, startIdx: number): number
 				depth += 1
 			elseif c == ")" then
 				depth -= 1
-				if depth == 0 then return i end
+				if depth == 0 then
+					return i
+				end
 			end
 		end
 
@@ -142,6 +195,14 @@ local function consumeParen(input: string, startIdx: number): number
 end
 
 -- Copy `${...}` including nested braces and quoted spaces.
+--[=[
+	Skips a brace group, respecting quotes and nesting.
+
+	@param input The input to process.
+	@param startIdx The index to start scanning from.
+
+	@return The resulting number.
+]=]
 local function consumeBrace(input: string, startIdx: number): number
 	local depth = 0
 	local i = startIdx
@@ -152,7 +213,9 @@ local function consumeBrace(input: string, startIdx: number): number
 		local c = string.sub(input, i, i)
 
 		if quote == 1 then
-			if c == "'" then quote = 0 end
+			if c == "'" then
+				quote = 0
+			end
 		elseif quote == 2 then
 			if c == "\\" then
 				i += 1
@@ -170,7 +233,9 @@ local function consumeBrace(input: string, startIdx: number): number
 				depth += 1
 			elseif c == "}" then
 				depth -= 1
-				if depth == 0 then return i end
+				if depth == 0 then
+					return i
+				end
 			end
 		end
 
@@ -180,6 +245,14 @@ local function consumeBrace(input: string, startIdx: number): number
 	error("unexpected EOF while looking for matching `}'", 0)
 end
 
+--[=[
+	Skips a backtick command substitution.
+
+	@param input The input to process.
+	@param startIdx The index to start scanning from.
+
+	@return The resulting number.
+]=]
 local function consumeBacktick(input: string, startIdx: number): number
 	local i = startIdx + 1
 	local len = #input
@@ -208,11 +281,19 @@ local ESCAPES: { [string]: string } = {
 	["v"] = "\v",
 	["\\"] = "\\",
 	["'"] = "'",
-	["\""] = "\"",
+	['"'] = '"',
 	["?"] = "?",
 }
 
 -- `$'...'` (ANSI-C quoting): escapes are interpreted and the result is literal.
+--[=[
+	Reads an ANSI-C quoted string.
+
+	@param input The input to process.
+	@param startIdx The index to start scanning from.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function readAnsiC(input: string, startIdx: number): (string, number)
 	local out = {}
 	local i = startIdx + 1
@@ -224,7 +305,9 @@ local function readAnsiC(input: string, startIdx: number): (string, number)
 			return table.concat(out), i + 1
 		elseif c == "\\" then
 			local n = string.sub(input, i + 1, i + 1)
-			if n == "" then break end
+			if n == "" then
+				break
+			end
 
 			if ESCAPES[n] then
 				table.insert(out, ESCAPES[n])
@@ -260,9 +343,12 @@ local function readAnsiC(input: string, startIdx: number): (string, number)
 					i += 2
 				end
 			elseif n == "c" then
-				local ctrl = string.sub(input, i + 2, i + 2)
-				if ctrl ~= "" then
-					table.insert(out, string.char(bit32.band(string.byte(string.upper(ctrl)), 0x1F)))
+				local control = string.sub(input, i + 2, i + 2)
+				if control ~= "" then
+					table.insert(
+						out,
+						string.char(bit32.band(string.byte(string.upper(control)), 0x1F))
+					)
 					i += 3
 				else
 					i += 2
@@ -285,26 +371,37 @@ end
 
 --[=[
 	Returns the token list for a line.
+
+	@param input The input to process.
 ]=]
 function Lexer.lex(input: string): { Token }
 	local tokens: { Token } = {}
 	local parts: { Part } = {}
-	local buf = ""
+	local buffer = ""
 	local quote = 0
 	local hasContent = false
 	local wordStarted = false
 
-	-- `<<` / `<<-` wait for the delimiter word; the body is read at the next newline.
+	-- `<<` / `<<-` wait for the delimiter word; the body is read at the next
+	-- newline.
 	local pendingHeredocs = {}
 	local pendingHeredocOp = nil
 
+	--[=[
+		Flushes the current word buffer as a quoted part.
+
+		@param mode The quoting mode.
+	]=]
 	local function flush(mode: number)
-		if buf ~= "" then
-			table.insert(parts, { Text = buf, Quote = mode })
-			buf = ""
+		if buffer ~= "" then
+			table.insert(parts, { Text = buffer, Quote = mode })
+			buffer = ""
 		end
 	end
 
+	--[=[
+		Finishes the current word and appends it to the token list.
+	]=]
 	local function pushWord()
 		if not hasContent and #parts == 0 then
 			return
@@ -337,11 +434,16 @@ function Lexer.lex(input: string): { Token }
 		end
 
 		parts = {}
-		buf = ""
+		buffer = ""
 		hasContent = false
 		wordStarted = false
 	end
 
+	--[=[
+		Appends an operator token.
+
+		@param value The value to convert.
+	]=]
 	local function pushOp(value: string)
 		flush(quote)
 		pushWord()
@@ -353,6 +455,13 @@ function Lexer.lex(input: string): { Token }
 	end
 
 	-- Consumes here-document bodies starting at `startIdx` (just past a newline).
+	--[=[
+		Consumes pending here-document bodies after a newline.
+
+		@param startIdx The index to start scanning from.
+
+		@return The resulting number.
+	]=]
 	local function drainHeredocs(startIdx: number): number
 		local index = startIdx
 		local length = #input
@@ -423,7 +532,7 @@ function Lexer.lex(input: string): { Token }
 			elseif c == "\\" then
 				local n = string.sub(input, i + 1, i + 1)
 				if n == "" then
-					buf ..= "\\"
+					buffer ..= "\\"
 					i += 1
 				elseif n == "\n" then
 					i += 2
@@ -440,7 +549,7 @@ function Lexer.lex(input: string): { Token }
 				wordStarted = true
 				hasContent = true
 				i += 1
-			elseif c == "\"" then
+			elseif c == '"' then
 				flush(0)
 				quote = 2
 				wordStarted = true
@@ -450,13 +559,13 @@ function Lexer.lex(input: string): { Token }
 				local n = string.sub(input, i + 1, i + 1)
 				if n == "(" then
 					local j = consumeParen(input, i + 1)
-					buf ..= string.sub(input, i, j)
+					buffer ..= string.sub(input, i, j)
 					wordStarted = true
 					hasContent = true
 					i = j + 1
 				elseif n == "{" then
 					local j = consumeBrace(input, i + 1)
-					buf ..= string.sub(input, i, j)
+					buffer ..= string.sub(input, i, j)
 					wordStarted = true
 					hasContent = true
 					i = j + 1
@@ -468,14 +577,14 @@ function Lexer.lex(input: string): { Token }
 					hasContent = true
 					i = nextIdx
 				else
-					buf ..= c
+					buffer ..= c
 					wordStarted = true
 					hasContent = true
 					i += 1
 				end
 			elseif c == "`" then
 				local j = consumeBacktick(input, i)
-				buf ..= string.sub(input, i, j)
+				buffer ..= string.sub(input, i, j)
 				wordStarted = true
 				hasContent = true
 				i = j + 1
@@ -490,7 +599,9 @@ function Lexer.lex(input: string): { Token }
 						depth += 1
 					elseif d == ")" then
 						depth -= 1
-						if depth == 0 then break end
+						if depth == 0 then
+							break
+						end
 					end
 					j += 1
 				end
@@ -511,20 +622,20 @@ function Lexer.lex(input: string): { Token }
 					pushOp(op)
 					i += #op
 				else
-					buf ..= c
+					buffer ..= c
 					wordStarted = true
 					hasContent = true
 					i += 1
 				end
 			else
-				buf ..= c
+				buffer ..= c
 				wordStarted = true
 				hasContent = true
 				i += 1
 			end
 		elseif quote == 1 then
 			if c == "'" then
-				if buf == "" then
+				if buffer == "" then
 					table.insert(parts, { Text = "", Quote = 1 })
 				else
 					flush(1)
@@ -532,12 +643,12 @@ function Lexer.lex(input: string): { Token }
 				quote = 0
 				i += 1
 			else
-				buf ..= c
+				buffer ..= c
 				i += 1
 			end
 		else -- quote == 2
-			if c == "\"" then
-				if buf == "" then
+			if c == '"' then
+				if buffer == "" then
 					table.insert(parts, { Text = "", Quote = 2 })
 				else
 					flush(2)
@@ -546,43 +657,48 @@ function Lexer.lex(input: string): { Token }
 				i += 1
 			elseif c == "\\" then
 				local n = string.sub(input, i + 1, i + 1)
-				if n == "$" or n == "`" or n == "\"" or n == "\\" then
+				if n == "$" or n == "`" or n == '"' or n == "\\" then
 					flush(2)
 					table.insert(parts, { Text = n, Quote = 1 })
 					i += 2
 				elseif n == "\n" then
 					i += 2
 				else
-					buf ..= c
+					buffer ..= c
 					i += 1
 				end
 			elseif c == "$" then
 				local n = string.sub(input, i + 1, i + 1)
 				if n == "(" then
 					local j = consumeParen(input, i + 1)
-					buf ..= string.sub(input, i, j)
+					buffer ..= string.sub(input, i, j)
 					i = j + 1
 				elseif n == "{" then
 					local j = consumeBrace(input, i + 1)
-					buf ..= string.sub(input, i, j)
+					buffer ..= string.sub(input, i, j)
 					i = j + 1
 				else
-					buf ..= c
+					buffer ..= c
 					i += 1
 				end
 			elseif c == "`" then
 				local j = consumeBacktick(input, i)
-				buf ..= string.sub(input, i, j)
+				buffer ..= string.sub(input, i, j)
 				i = j + 1
 			else
-				buf ..= c
+				buffer ..= c
 				i += 1
 			end
 		end
 	end
 
 	if quote ~= 0 then
-		error(if quote == 1 then "unexpected EOF while looking for matching `''" else "unexpected EOF while looking for matching `\"'", 0)
+		error(
+			if quote == 1
+				then "unexpected EOF while looking for matching `''"
+				else "unexpected EOF while looking for matching `\"'",
+			0
+		)
 	end
 
 	flush(quote)
@@ -594,6 +710,8 @@ end
 --[=[
 	Backwards-compatible helper: returns words and operators as plain strings.
 	Used by autocomplete, which only needs the current word.
+
+	@param input The input to process.
 ]=]
 function Lexer.tokenize(input: string): { string }
 	local out = {}
@@ -613,6 +731,8 @@ end
 
 --[=[
 	Returns the plain text of a word token, ignoring quote modes.
+
+	@param token The token to inspect.
 ]=]
 function Lexer.wordText(token: Token?): string?
 	if not token or token.Type ~= "word" then

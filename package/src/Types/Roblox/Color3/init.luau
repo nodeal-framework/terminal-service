@@ -1,7 +1,31 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Argument type `Color3`: validates, transforms and autocompletes input typed
+	into the terminal.
+]=]
+
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 return {
+	--[=[
+		Validates raw terminal input for this type.
+
+		@param text The text typed by the player.
+		@param executor The player running the command.
+		@return True when the text is valid, plus an error message otherwise.
+	]=]
 	Validate = function(text: string, executor: Player)
 		if string.match(text, "^#%x%x%x%x%x%x$") or string.match(text, "^%x%x%x%x%x%x$") then
 			return true
@@ -14,6 +38,13 @@ return {
 		end
 		return false
 	end,
+	--[=[
+		Converts validated text into the value the command receives.
+
+		@param text The validated text.
+		@param executor The player running the command.
+		@return The typed value.
+	]=]
 	Transform = function(text: string, executor: Player)
 		if string.match(text, "^#%x%x%x%x%x%x$") then
 			return Color3.fromHex(string.sub(text, 2))
@@ -26,10 +57,33 @@ return {
 		end
 		return Color3.new(1, 1, 1)
 	end,
+	--[=[
+		Returns completion candidates for partially typed text.
+
+		@param text The text typed so far.
+		@param executor The player running the command.
+		@return The list of suggestions.
+	]=]
 	Autocomplete = function(text: string, executor: Player)
 		return {}
 	end,
-	CreateCustomUI = function(currentText: string, terminalService, onSelect: (string) -> (), keepFocus: () -> (), liveUpdate: (string) -> ())
+	--[=[
+		Builds the interactive picker shown in the autocomplete dropdown.
+
+		@param currentText The text typed so far.
+		@param terminalService The terminal service.
+		@param onSelect Called with the chosen value.
+		@param keepFocus Keeps the terminal input focused.
+		@param liveUpdate Called while the selection changes.
+		@return The picker frame.
+	]=]
+	CreateCustomUI = function(
+		currentText: string,
+		terminalService,
+		onSelect: (string) -> (),
+		keepFocus: () -> (),
+		liveUpdate: (string) -> ()
+	)
 		local Frame = Instance.new("Frame")
 		Frame.Size = UDim2.new(1, 0, 0, 185)
 		Frame.BackgroundTransparency = 1
@@ -104,12 +158,12 @@ return {
 		local HueGrad = Instance.new("UIGradient")
 		HueGrad.Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 1, 1)),
-			ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6, 1, 1)),
-			ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6, 1, 1)),
-			ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6, 1, 1)),
-			ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6, 1, 1)),
-			ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6, 1, 1)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 1, 1))
+			ColorSequenceKeypoint.new(1 / 6, Color3.fromHSV(1 / 6, 1, 1)),
+			ColorSequenceKeypoint.new(2 / 6, Color3.fromHSV(2 / 6, 1, 1)),
+			ColorSequenceKeypoint.new(3 / 6, Color3.fromHSV(3 / 6, 1, 1)),
+			ColorSequenceKeypoint.new(4 / 6, Color3.fromHSV(4 / 6, 1, 1)),
+			ColorSequenceKeypoint.new(5 / 6, Color3.fromHSV(5 / 6, 1, 1)),
+			ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 1, 1)),
 		})
 		HueGrad.Parent = HuePicker
 
@@ -140,6 +194,11 @@ return {
 		local isDraggingSV = false
 		local isDraggingHue = false
 
+		--[=[
+			Refreshes the colour preview and notifies live updates.
+
+			@param callLiveUpdate Whether to notify live listeners.
+		]=]
 		local function updateColorInternal(callLiveUpdate)
 			local c = Color3.fromHSV(currentH, currentS, currentV)
 			Preview.BackgroundColor3 = c
@@ -150,64 +209,115 @@ return {
 			end
 		end
 
-		table.insert(connections, SVPicker.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				isDraggingSV = true
-				keepFocus()
-				local x = math.clamp((input.Position.X - SVPicker.AbsolutePosition.X) / SVPicker.AbsoluteSize.X, 0, 1)
-				local y = math.clamp((input.Position.Y - SVPicker.AbsolutePosition.Y) / SVPicker.AbsoluteSize.Y, 0, 1)
-				currentS = x
-				currentV = 1 - y
-				SVKnob.Position = UDim2.new(x, 0, y, 0)
-				updateColorInternal(true)
-			end
-		end))
-
-		table.insert(connections, HuePicker.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				isDraggingHue = true
-				keepFocus()
-				local x = math.clamp((input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X, 0, 1)
-				currentH = x
-				HueKnob.Position = UDim2.new(x, 0, 0.5, 0)
-				updateColorInternal(true)
-			end
-		end))
-
-		table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				if isDraggingSV then
-					local x = math.clamp((input.Position.X - SVPicker.AbsolutePosition.X) / SVPicker.AbsoluteSize.X, 0, 1)
-					local y = math.clamp((input.Position.Y - SVPicker.AbsolutePosition.Y) / SVPicker.AbsoluteSize.Y, 0, 1)
+		table.insert(
+			connections,
+			SVPicker.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					isDraggingSV = true
+					keepFocus()
+					local x = math.clamp(
+						(input.Position.X - SVPicker.AbsolutePosition.X) / SVPicker.AbsoluteSize.X,
+						0,
+						1
+					)
+					local y = math.clamp(
+						(input.Position.Y - SVPicker.AbsolutePosition.Y) / SVPicker.AbsoluteSize.Y,
+						0,
+						1
+					)
 					currentS = x
 					currentV = 1 - y
 					SVKnob.Position = UDim2.new(x, 0, y, 0)
 					updateColorInternal(true)
-				elseif isDraggingHue then
-					local x = math.clamp((input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X, 0, 1)
+				end
+			end)
+		)
+
+		table.insert(
+			connections,
+			HuePicker.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					isDraggingHue = true
+					keepFocus()
+					local x = math.clamp(
+						(input.Position.X - HuePicker.AbsolutePosition.X) / HuePicker.AbsoluteSize.X,
+						0,
+						1
+					)
 					currentH = x
 					HueKnob.Position = UDim2.new(x, 0, 0.5, 0)
 					updateColorInternal(true)
 				end
-			end
-		end))
+			end)
+		)
 
-		table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				if isDraggingSV or isDraggingHue then
-					isDraggingSV = false
-					isDraggingHue = false
-					keepFocus()
+		table.insert(
+			connections,
+			UserInputService.InputChanged:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseMovement
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if isDraggingSV then
+						local x = math.clamp(
+							(input.Position.X - SVPicker.AbsolutePosition.X)
+								/ SVPicker.AbsoluteSize.X,
+							0,
+							1
+						)
+						local y = math.clamp(
+							(input.Position.Y - SVPicker.AbsolutePosition.Y)
+								/ SVPicker.AbsoluteSize.Y,
+							0,
+							1
+						)
+						currentS = x
+						currentV = 1 - y
+						SVKnob.Position = UDim2.new(x, 0, y, 0)
+						updateColorInternal(true)
+					elseif isDraggingHue then
+						local x = math.clamp(
+							(input.Position.X - HuePicker.AbsolutePosition.X)
+								/ HuePicker.AbsoluteSize.X,
+							0,
+							1
+						)
+						currentH = x
+						HueKnob.Position = UDim2.new(x, 0, 0.5, 0)
+						updateColorInternal(true)
+					end
 				end
-			end
-		end))
+			end)
+		)
+
+		table.insert(
+			connections,
+			UserInputService.InputEnded:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if isDraggingSV or isDraggingHue then
+						isDraggingSV = false
+						isDraggingHue = false
+						keepFocus()
+					end
+				end
+			end)
+		)
 
 		Frame.Destroying:Connect(function()
-			for _, conn in ipairs(connections) do
-				conn:Disconnect()
+			for _, connection in ipairs(connections) do
+				connection:Disconnect()
 			end
 		end)
 
 		return Frame
-	end
+	end,
 }

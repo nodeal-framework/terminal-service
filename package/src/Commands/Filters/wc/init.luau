@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `wc` command: Count lines, words, characters and bytes in
+	stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -19,8 +24,14 @@ return {
 	Aliases = { "count" },
 	Description = "Count lines, words, characters and bytes in stdin",
 	Args = {},
+	--[=[
+		Count lines, words, characters and bytes in stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "lwcmL", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "lwcmL", {
 			lines = "l",
 			words = "w",
 			bytes = "c",
@@ -28,8 +39,8 @@ return {
 			max_line_length = "L",
 		})
 
-		if err then
-			context:Error(`wc: {err}`, 2)
+		if errorValue then
+			context:Error(`wc: {errorValue}`, 2)
 			return ""
 		end
 
@@ -62,14 +73,20 @@ return {
 		local wantMax = options.L == true
 
 		local parts = {}
-		if wantLines then table.insert(parts, tostring(lineCount)) end
-		if wantWords then table.insert(parts, tostring(wordCount)) end
+		if wantLines then
+			table.insert(parts, tostring(lineCount))
+		end
+		if wantWords then
+			table.insert(parts, tostring(wordCount))
+		end
 		if wantChars then
 			table.insert(parts, tostring(charCount))
 		elseif wantBytes then
 			table.insert(parts, tostring(byteCount))
 		end
-		if wantMax then table.insert(parts, tostring(maxLength)) end
+		if wantMax then
+			table.insert(parts, tostring(maxLength))
+		end
 
 		if #parts == 1 then
 			return parts[1]

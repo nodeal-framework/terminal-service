@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `column` command: Format stdin into columns.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +22,14 @@ return {
 	Permission = "Any",
 	Description = "Format stdin into columns",
 	Args = {},
+	--[=[
+		Format stdin into columns.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "ts:o:c:x", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "ts:o:c:x", {
 			table = "t",
 			separator = "s",
 			output_separator = "o",
@@ -27,8 +37,8 @@ return {
 			fill_rows = "x",
 		})
 
-		if err then
-			context:Error(`column: {err}`, 2)
+		if errorValue then
+			context:Error(`column: {errorValue}`, 2)
 			return ""
 		end
 
@@ -42,11 +52,15 @@ return {
 		local rows = {}
 
 		for _, line in Text.lines(context:GetInput()) do
-			local fields = if input then string.split(line, input) else (function()
-				local list = {}
-				for field in string.gmatch(line, "%S+") do table.insert(list, field) end
-				return list
-			end)()
+			local fields = if input
+				then string.split(line, input)
+				else (function()
+					local list = {}
+					for field in string.gmatch(line, "%S+") do
+						table.insert(list, field)
+					end
+					return list
+				end)()
 			table.insert(rows, fields)
 		end
 
@@ -68,7 +82,10 @@ return {
 				if index == #fields then
 					table.insert(parts, field)
 				else
-					table.insert(parts, field .. string.rep(" ", (widths[index] or #field) - #field))
+					table.insert(
+						parts,
+						field .. string.rep(" ", (widths[index] or #field) - #field)
+					)
 				end
 			end
 			table.insert(out, table.concat(parts, output))

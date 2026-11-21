@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `fold` command: Wrap each line of stdin to a fixed width.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,15 +22,21 @@ return {
 	Permission = "Any",
 	Description = "Wrap each line of stdin to a fixed width",
 	Args = {},
+	--[=[
+		Wrap each line of stdin to a fixed width.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "w:sb", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "w:sb", {
 			width = "w",
 			spaces = "s",
 			bytes = "b",
 		})
 
-		if err then
-			context:Error(`fold: {err}`, 2)
+		if errorValue then
+			context:Error(`fold: {errorValue}`, 2)
 			return ""
 		end
 
@@ -53,13 +63,19 @@ return {
 				local cut = width
 				if options.s then
 					local space = string.find(string.sub(rest, 1, width + 1), "%s+$")
-					if space then cut = space - 1 end
+					if space then
+						cut = space - 1
+					end
 				end
-				if cut < 1 then cut = width end
+				if cut < 1 then
+					cut = width
+				end
 				table.insert(out, string.sub(rest, 1, cut))
 				rest = string.gsub(string.sub(rest, cut + 1), "^%s+", "")
 			end
-			if rest ~= "" then table.insert(out, rest) end
+			if rest ~= "" then
+				table.insert(out, rest)
+			end
 		end
 
 		return table.concat(out, "\n")

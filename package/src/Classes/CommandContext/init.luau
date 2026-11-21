@@ -10,14 +10,38 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Everything a command receives when it runs.
+
+	Carries the executor, raw and typed arguments, piped input, the shell and the
+	exit status, and exposes Reply, Error and Success so commands never print directly.
+]=]
+
 local CommandContext = {}
 CommandContext.__index = CommandContext
 
-function CommandContext.new(executor: Player, args: {string}, input: string?, terminalService: table, shell: any?)
+--[=[
+	Creates the context handed to one command invocation.
+
+	@param executor The player running the command.
+	@param arguments The command arguments.
+	@param input The input to process.
+	@param terminalService The terminal service.
+	@param shell The shell instance.
+
+	@return The new context.
+]=]
+function CommandContext.new(
+	executor: Player,
+	arguments: { string },
+	input: string?,
+	terminalService: table,
+	shell: any?
+)
 	local self = setmetatable({}, CommandContext)
 
 	self.Executor = executor
-	self.Args = args
+	self.Args = arguments
 	self.Input = input or ""
 	self.Output = ""
 	self.ErrorMsg = ""
@@ -28,31 +52,57 @@ function CommandContext.new(executor: Player, args: {string}, input: string?, te
 	return self
 end
 
-function CommandContext:Reply(msg: string): ()
+--[=[
+	Appends a line to standard output.
+
+	@param message The message to show.
+]=]
+function CommandContext:Reply(message: string): ()
 	if self.Output ~= "" then
-		self.Output ..= "\n" .. msg
+		self.Output ..= "\n" .. message
 	else
-		self.Output = msg
+		self.Output = message
 	end
 end
 
-function CommandContext:Error(msg: string, code: number?): ()
+--[=[
+	Appends a line to standard error and sets the exit status.
+
+	@param message The message to show.
+	@param code The exit status.
+]=]
+function CommandContext:Error(message: string, code: number?): ()
 	if self.ErrorMsg ~= "" then
-		self.ErrorMsg ..= "\n" .. msg
+		self.ErrorMsg ..= "\n" .. message
 	else
-		self.ErrorMsg = msg
+		self.ErrorMsg = message
 	end
 	self.Code = code or 1
 end
 
+--[=[
+	Sets the exit status of the command.
+
+	@param code The exit status.
+]=]
 function CommandContext:SetCode(code: number): ()
 	self.Code = code
 end
 
+--[=[
+	Returns the piped input for this command.
+
+	@return The resulting text.
+]=]
 function CommandContext:GetInput(): string
 	return self.Input
 end
 
+--[=[
+	Returns true when the command exited with status zero.
+
+	@return True when the condition holds.
+]=]
 function CommandContext:Success(): boolean
 	return self.Code == 0
 end

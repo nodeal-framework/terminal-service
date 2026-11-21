@@ -1,7 +1,31 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Argument type `Vector3`: validates, transforms and autocompletes input typed
+	into the terminal.
+]=]
+
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 return {
+	--[=[
+		Validates raw terminal input for this type.
+
+		@param text The text typed by the player.
+		@param executor The player running the command.
+		@return True when the text is valid, plus an error message otherwise.
+	]=]
 	Validate = function(text: string, executor: Player)
 		local x, y, z = string.match(text, "^([^,]+),([^,]+),([^,]+)$")
 		if x and y and z then
@@ -12,6 +36,13 @@ return {
 		return false, "Format must be X, Y, Z"
 	end,
 
+	--[=[
+		Converts validated text into the value the command receives.
+
+		@param text The validated text.
+		@param executor The player running the command.
+		@return The typed value.
+	]=]
 	Transform = function(text: string, executor: Player)
 		local x, y, z = string.match(text, "^([^,]+),([^,]+),([^,]+)$")
 		if x and y and z then
@@ -20,11 +51,34 @@ return {
 		return Vector3.zero
 	end,
 
+	--[=[
+		Returns completion candidates for partially typed text.
+
+		@param text The text typed so far.
+		@param executor The player running the command.
+		@return The list of suggestions.
+	]=]
 	Autocomplete = function(text: string, executor: Player)
 		return {}
 	end,
 
-	CreateCustomUI = function(currentText: string, terminalService: any, onSelect: (string) -> (), keepFocus: () -> (), liveUpdate: (string) -> ())
+	--[=[
+		Builds the interactive picker shown in the autocomplete dropdown.
+
+		@param currentText The text typed so far.
+		@param terminalService The terminal service.
+		@param onSelect Called with the chosen value.
+		@param keepFocus Keeps the terminal input focused.
+		@param liveUpdate Called while the selection changes.
+		@return The picker frame.
+	]=]
+	CreateCustomUI = function(
+		currentText: string,
+		terminalService: any,
+		onSelect: (string) -> (),
+		keepFocus: () -> (),
+		liveUpdate: (string) -> ()
+	)
 		local Frame = Instance.new("Frame")
 		Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		Frame.BorderSizePixel = 0
@@ -90,14 +144,25 @@ return {
 		InfoLabel.Text = `X: {currentX}\nY: {currentY}\nZ: {currentZ}`
 		InfoLabel.Parent = Frame
 
-		local function getGridPos(val)
-			return math.clamp((val + 100) / 200, 0, 1)
+		--[=[
+			Maps a coordinate from -100..100 to 0..1.
+
+			@param value The value to inspect.
+
+			@return The slider position from 0 to 1.
+		]=]
+		local function getGridPos(value)
+			return math.clamp((value + 100) / 200, 0, 1)
 		end
 
+		--[=[
+			Refreshes the picker cursor and label from the current values.
+		]=]
 		local function updateVisuals()
 			GridCursor.Position = UDim2.new(getGridPos(currentX), 0, getGridPos(currentZ), 0)
 			YCursor.Position = UDim2.new(0.5, 0, 1 - getGridPos(currentY), 0)
-			InfoLabel.Text = string.format("X: %.1f\nY: %.1f\nZ: %.1f", currentX, currentY, currentZ)
+			InfoLabel.Text =
+				string.format("X: %.1f\nY: %.1f\nZ: %.1f", currentX, currentY, currentZ)
 		end
 		updateVisuals()
 
@@ -105,14 +170,32 @@ return {
 		local isDraggingY = false
 		local connections = {}
 
+		--[=[
+			Updates the picker values from a pointer input.
+
+			@param input The input to process.
+			@param type The type name to resolve.
+		]=]
 		local function onInput(input, type)
 			if type == "grid" then
-				local x = math.clamp((input.Position.X - GridArea.AbsolutePosition.X) / GridArea.AbsoluteSize.X, 0, 1)
-				local z = math.clamp((input.Position.Y - GridArea.AbsolutePosition.Y) / GridArea.AbsoluteSize.Y, 0, 1)
+				local x = math.clamp(
+					(input.Position.X - GridArea.AbsolutePosition.X) / GridArea.AbsoluteSize.X,
+					0,
+					1
+				)
+				local z = math.clamp(
+					(input.Position.Y - GridArea.AbsolutePosition.Y) / GridArea.AbsoluteSize.Y,
+					0,
+					1
+				)
 				currentX = math.floor((x * 200 - 100) * 10) / 10
 				currentZ = math.floor((z * 200 - 100) * 10) / 10
 			elseif type == "y" then
-				local y = math.clamp((input.Position.Y - YSliderArea.AbsolutePosition.Y) / YSliderArea.AbsoluteSize.Y, 0, 1)
+				local y = math.clamp(
+					(input.Position.Y - YSliderArea.AbsolutePosition.Y) / YSliderArea.AbsoluteSize.Y,
+					0,
+					1
+				)
 				currentY = math.floor(((1 - y) * 200 - 100) * 10) / 10
 			end
 			updateVisuals()
@@ -120,46 +203,70 @@ return {
 			keepFocus()
 		end
 
-		table.insert(connections, GridArea.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				isDraggingGrid = true
-				onInput(input, "grid")
-			end
-		end))
-
-		table.insert(connections, YSliderArea.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				isDraggingY = true
-				onInput(input, "y")
-			end
-		end))
-
-		table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				if isDraggingGrid then
+		table.insert(
+			connections,
+			GridArea.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					isDraggingGrid = true
 					onInput(input, "grid")
-				elseif isDraggingY then
+				end
+			end)
+		)
+
+		table.insert(
+			connections,
+			YSliderArea.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					isDraggingY = true
 					onInput(input, "y")
 				end
-			end
-		end))
+			end)
+		)
 
-		table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				if isDraggingGrid or isDraggingY then
-					isDraggingGrid = false
-					isDraggingY = false
-					keepFocus()
+		table.insert(
+			connections,
+			UserInputService.InputChanged:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseMovement
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if isDraggingGrid then
+						onInput(input, "grid")
+					elseif isDraggingY then
+						onInput(input, "y")
+					end
 				end
-			end
-		end))
+			end)
+		)
+
+		table.insert(
+			connections,
+			UserInputService.InputEnded:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if isDraggingGrid or isDraggingY then
+						isDraggingGrid = false
+						isDraggingY = false
+						keepFocus()
+					end
+				end
+			end)
+		)
 
 		Frame.Destroying:Connect(function()
-			for _, conn in ipairs(connections) do
-				conn:Disconnect()
+			for _, connection in ipairs(connections) do
+				connection:Disconnect()
 			end
 		end)
 
 		return Frame
-	end
+	end,
 }

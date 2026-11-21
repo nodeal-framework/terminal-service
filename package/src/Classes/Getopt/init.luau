@@ -22,6 +22,13 @@
 
 local Getopt = {}
 
+--[=[
+	Indexes a short option specification.
+
+	@param spec The specification to parse.
+
+	@return The short option index.
+]=]
 local function buildShort(spec: string)
 	local allowed = {}
 	local takesValue = {}
@@ -42,25 +49,38 @@ local function buildShort(spec: string)
 	return allowed, takesValue
 end
 
-function Getopt.parse(args: { string }, shortSpec: string?, longSpec: { [string]: any }?): (any, { string }, string?)
+--[=[
+	Parses GNU-style short and long options.
+
+	@param arguments The command arguments.
+	@param shortSpec The short option specification.
+	@param longSpec The long option table.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Getopt.parse(
+	arguments: { string },
+	shortSpec: string?,
+	longSpec: { [string]: any }?
+): (any, { string }, string?)
 	local shortAllowed, shortValue = buildShort(shortSpec or "")
 	local long = longSpec or {}
 	local options = {}
 	local operands = {}
 	local i = 1
 
-	while i <= #args do
-		local arg = args[i]
+	while i <= #arguments do
+		local argument = arguments[i]
 
-		if arg == "--" then
+		if argument == "--" then
 			i += 1
-			while i <= #args do
-				table.insert(operands, args[i])
+			while i <= #arguments do
+				table.insert(operands, arguments[i])
 				i += 1
 			end
 			break
-		elseif string.sub(arg, 1, 2) == "--" and #arg > 2 then
-			local body = string.sub(arg, 3)
+		elseif string.sub(argument, 1, 2) == "--" and #argument > 2 then
+			local body = string.sub(argument, 3)
 			local name, value = string.match(body, "^([^=]+)=(.*)$")
 			if not name then
 				name = body
@@ -79,7 +99,7 @@ function Getopt.parse(args: { string }, shortSpec: string?, longSpec: { [string]
 			else
 				if value == nil then
 					i += 1
-					value = args[i]
+					value = arguments[i]
 					if value == nil then
 						return options, operands, `option '--{name}' requires an argument`
 					end
@@ -88,8 +108,8 @@ function Getopt.parse(args: { string }, shortSpec: string?, longSpec: { [string]
 			end
 
 			i += 1
-		elseif string.sub(arg, 1, 1) == "-" and #arg > 1 then
-			local body = string.sub(arg, 2)
+		elseif string.sub(argument, 1, 1) == "-" and #argument > 1 then
+			local body = string.sub(argument, 2)
 			local j = 1
 			local consumed = false
 
@@ -108,7 +128,7 @@ function Getopt.parse(args: { string }, shortSpec: string?, longSpec: { [string]
 					local value = string.sub(body, j + 1)
 					if value == "" then
 						i += 1
-						value = args[i]
+						value = arguments[i]
 						if value == nil then
 							return options, operands, `option requires an argument -- '{c}'`
 						end
@@ -123,12 +143,12 @@ function Getopt.parse(args: { string }, shortSpec: string?, longSpec: { [string]
 			end
 
 			if not consumed and j == 1 and string.match(body, "^%d+$") then
-				table.insert(operands, arg)
+				table.insert(operands, argument)
 			end
 
 			i += 1
 		else
-			table.insert(operands, arg)
+			table.insert(operands, argument)
 			i += 1
 		end
 	end
@@ -138,6 +158,9 @@ end
 
 --[=[
 	Returns an option count helper: opts.has("n") checks both "n" and long aliases.
+
+	@param options The parsed options.
+	@param name The name to look up.
 ]=]
 function Getopt.has(options, name: string): boolean
 	return options[name] ~= nil and options[name] ~= false

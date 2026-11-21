@@ -10,9 +10,23 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Command objects and their execution pipeline.
+
+	Validates typed arguments through the registered argument types, enforces
+	permissions and normalises the values a command returns into terminal output.
+]=]
+
 local Command = {}
 Command.__index = Command
 
+--[=[
+	Creates a command object from its definition table.
+
+	@param config The command definition table.
+
+	@return The new command.
+]=]
 function Command.new(config: table)
 	local self = setmetatable({}, Command)
 
@@ -27,8 +41,18 @@ function Command.new(config: table)
 	return self
 end
 
--- Checked on every run. A command that declares no Permission falls back on TerminalService's
--- DefaultPermission ("Admin" unless changed): open commands say Permission = "Any".
+-- Checked on every run. A command that declares no Permission falls back on
+-- TerminalService's DefaultPermission ("Admin" unless changed): open commands
+-- say Permission = "Any".
+--[=[
+	Checks whether the executor may run this command.
+
+	@param command The command to run.
+	@param context The command context.
+	@param terminalService The terminal service.
+
+	@return True when the condition holds.
+]=]
 local function isAllowed(command, context, terminalService): boolean
 	local terminal = terminalService or (context and context.Terminal)
 	local required = command.Permission or (terminal and terminal.DefaultPermission) or "Admin"
@@ -54,7 +78,16 @@ local function isAllowed(command, context, terminalService): boolean
 	return auth:HasPermissionAsync(executor, required) == true
 end
 
-function Command:Execute(context, rawArgs: {string}, terminalService)
+--[=[
+	Validates arguments, runs the command and normalises its output.
+
+	@param context The command context.
+	@param rawArgs The raw argument tokens.
+	@param terminalService The terminal service.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Command:Execute(context, rawArgs: { string }, terminalService)
 	if not isAllowed(self, context, terminalService) then
 		context:Error(`{self.Name}: permission denied`, 126)
 		return
@@ -62,8 +95,8 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 
 	local validatedArgs = {}
 
-	for idx, argSpec in self.Args do
-		local rawVal = rawArgs[idx]
+	for index, argSpec in self.Args do
+		local rawVal = rawArgs[index]
 
 		if rawVal == nil and context.Input ~= nil and context.Input ~= "" then
 			local argType = argSpec.Type or argSpec.type
@@ -85,9 +118,9 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 		local argDesc = argSpec.Description or argSpec.description
 
 		-- If this is the last argument, consume all remaining tokens joined by spaces
-		if idx == #self.Args and rawVal ~= nil then
+		if index == #self.Args and rawVal ~= nil then
 			local remaining = {}
-			for i = idx, #rawArgs do
+			for i = index, #rawArgs do
 				table.insert(remaining, rawArgs[i])
 			end
 			rawVal = table.concat(remaining, " ")
@@ -106,18 +139,20 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 			local types = string.split(string.gsub(argType, "%s+", ""), "|")
 			local validParser = nil
 			local lastErr = nil
-			local val = nil
+			local value = nil
 
 			for _, tName in ipairs(types) do
 				local typeParser = terminalService:GetType(tName)
 				if typeParser then
-					local success, err = typeParser.Validate(rawVal, context.Executor, terminalService, argSpec)
+					local success, errorValue =
+						typeParser.Validate(rawVal, context.Executor, terminalService, argSpec)
 					if success then
 						validParser = typeParser
-						val = typeParser.Transform(rawVal, context.Executor, terminalService, argSpec)
+						value =
+							typeParser.Transform(rawVal, context.Executor, terminalService, argSpec)
 						break
 					else
-						lastErr = err
+						lastErr = errorValue
 					end
 				else
 					lastErr = `Unknown argument type '{tName}'`
@@ -129,21 +164,21 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 				return
 			end
 
-			table.insert(validatedArgs, val)
+			table.insert(validatedArgs, value)
 		end
 	end
 
 	local multiArgIndex = nil
 	local multiValues = nil
 
-	for i, val in ipairs(validatedArgs) do
-		if type(val) == "table" and val.__isMultiValue then
+	for i, value in ipairs(validatedArgs) do
+		if type(value) == "table" and value.__isMultiValue then
 			if multiArgIndex then
 				context:Error("Cannot use multiple multi-value arguments in the same command.")
 				return
 			end
 			multiArgIndex = i
-			multiValues = val.Values
+			multiValues = value.Values
 		end
 	end
 
@@ -166,7 +201,9 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 			else
 				local outputs = {}
 				for j = 2, results.n do
-					if results[j] ~= nil then table.insert(outputs, tostring(results[j])) end
+					if results[j] ~= nil then
+						table.insert(outputs, tostring(results[j]))
+					end
 				end
 				if #outputs > 0 then
 					table.insert(combinedOutputs, table.concat(outputs, " "))
@@ -195,9 +232,9 @@ function Command:Execute(context, rawArgs: {string}, terminalService)
 		else
 			local outputs = {}
 			for i = 2, results.n do
-				local val = results[i]
-				if val ~= nil then
-					table.insert(outputs, tostring(val))
+				local value = results[i]
+				if value ~= nil then
+					table.insert(outputs, tostring(value))
 				end
 			end
 

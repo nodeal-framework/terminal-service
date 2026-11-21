@@ -1,3 +1,19 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Implements the `ban` command: Bans a player from the game.
+]=]
+
 local Players = game:GetService("Players")
 
 return {
@@ -7,16 +23,35 @@ return {
 	Permission = "Admin",
 	Args = {
 		{ Name = "Target", Type = "Player", Description = "The player to ban" },
-		{ Name = "Duration", Type = "date | duration", Description = "Date or duration (e.g. 1d, 2h) or -1", Default = -1 },
-		{ Name = "Reason", Type = "string", Description = "Reason for the ban", Default = "No reason" }
+		{
+			Name = "Duration",
+			Type = "date | duration",
+			Description = "Date or duration (e.g. 1d, 2h) or -1",
+			Default = -1,
+		},
+		{
+			Name = "Reason",
+			Type = "string",
+			Description = "Reason for the ban",
+			Default = "No reason",
+		},
 	},
+	--[=[
+		Bans a player from the game.
+
+		@param context The command context.
+		@param target The player to ban
+		@param duration Date or duration (e.g. 1d, 2h) or -1
+		@param reason Reason for the ban
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context, target: Player, duration: number, reason: string)
 		local config = {
 			UserIds = { target.UserId },
 			DisplayReason = reason,
 			PrivateReason = reason,
 			ExcludeAltAccounts = false,
-			ApplyToUniverse = true
+			ApplyToUniverse = true,
 		}
 
 		-- If it's a date timestamp, subtract current time to get duration
@@ -28,7 +63,7 @@ return {
 			config.Duration = duration
 		end
 
-		local success, err = pcall(function()
+		local success, errorValue = pcall(function()
 			Players:BanAsync(config)
 		end)
 
@@ -39,7 +74,7 @@ return {
 				return `Successfully permanently banned {target.Name}. Reason: {reason}`
 			end
 		else
-			context:Error(`Failed to ban {target.Name}: {err}`)
+			context:Error(`Failed to ban {target.Name}: {errorValue}`)
 		end
-	end
+	end,
 }

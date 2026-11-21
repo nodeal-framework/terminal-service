@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `nl` command: Number lines of stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +22,14 @@ return {
 	Permission = "Any",
 	Description = "Number lines of stdin",
 	Args = {},
+	--[=[
+		Number lines of stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "b:n:w:s:v:i:d:", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "b:n:w:s:v:i:d:", {
 			body_numbering = "b",
 			number_format = "n",
 			number_width = "w",
@@ -29,8 +39,8 @@ return {
 			section_delimiter = "d",
 		})
 
-		if err then
-			context:Error(`nl: {err}`, 2)
+		if errorValue then
+			context:Error(`nl: {errorValue}`, 2)
 			return ""
 		end
 

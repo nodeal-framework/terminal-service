@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `fmt` command: Reflow text to a given width.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,16 +22,22 @@ return {
 	Permission = "Any",
 	Description = "Reflow text to a given width",
 	Args = {},
+	--[=[
+		Reflow text to a given width.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "w:sup:", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "w:sup:", {
 			width = "w",
 			split_only = "s",
 			uniform = "u",
 			prefix = "p",
 		})
 
-		if err then
-			context:Error(`fmt: {err}`, 2)
+		if errorValue then
+			context:Error(`fmt: {errorValue}`, 2)
 			return ""
 		end
 
@@ -47,8 +57,13 @@ return {
 		local out = {}
 		local paragraph = {}
 
+		--[=[
+			Flushes the current paragraph.
+		]=]
 		local function flush()
-			if #paragraph == 0 then return end
+			if #paragraph == 0 then
+				return
+			end
 
 			if options.s then
 				for _, line in paragraph do

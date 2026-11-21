@@ -1,6 +1,30 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Argument type `DateTime`: validates, transforms and autocompletes input
+	typed into the terminal.
+
+	@param month The month to render.
+	@param year The year to render.
+]=]
+
 local function getDaysInMonth(month: number, year: number)
 	if month == 2 then
-		if year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0) then return 29 else return 28 end
+		if year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0) then
+			return 29
+		else
+			return 28
+		end
 	elseif month == 4 or month == 6 or month == 9 or month == 11 then
 		return 30
 	else
@@ -8,6 +32,14 @@ local function getDaysInMonth(month: number, year: number)
 	end
 end
 
+--[=[
+	Returns the weekday of the first day of a month.
+
+	@param month The month to render.
+	@param year The year to render.
+
+	@return The weekday of the first day.
+]=]
 local function getFirstDayOfWeek(month: number, year: number)
 	-- Zeller's congruence
 	local q = 1
@@ -19,13 +51,21 @@ local function getFirstDayOfWeek(month: number, year: number)
 	end
 	local k = y % 100
 	local j = math.floor(y / 100)
-	local h = (q + math.floor(13*(m+1)/5) + k + math.floor(k/4) + math.floor(j/4) - 2*j) % 7
+	local h = (q + math.floor(13 * (m + 1) / 5) + k + math.floor(k / 4) + math.floor(j / 4) - 2 * j)
+		% 7
 	-- h is 0=Sat, 1=Sun, 2=Mon... We want 1=Mon, 7=Sun
-	local res = ((h + 5) % 7) + 1
-	return res
+	local result = ((h + 5) % 7) + 1
+	return result
 end
 
 return {
+	--[=[
+		Validates raw terminal input for this type.
+
+		@param text The text typed by the player.
+		@param executor The player running the command.
+		@return True when the text is valid, plus an error message otherwise.
+	]=]
 	Validate = function(text: string, executor: Player)
 		local d, m, y = string.match(text, "^(%d%d)/(%d%d)/(%d%d%d%d)$")
 		if d and m and y then
@@ -38,6 +78,13 @@ return {
 		return false, "Format must be DD/MM/YYYY"
 	end,
 
+	--[=[
+		Converts validated text into the value the command receives.
+
+		@param text The validated text.
+		@param executor The player running the command.
+		@return The typed value.
+	]=]
 	Transform = function(text: string, executor: Player)
 		local d, m, y = string.match(text, "^(%d%d)/(%d%d)/(%d%d%d%d)$")
 		if d and m and y then
@@ -46,11 +93,32 @@ return {
 		return DateTime.now()
 	end,
 
+	--[=[
+		Returns completion candidates for partially typed text.
+
+		@param text The text typed so far.
+		@param executor The player running the command.
+		@return The list of suggestions.
+	]=]
 	Autocomplete = function(text: string, executor: Player)
 		return {}
 	end,
 
-	CreateCustomUI = function(currentText: string, terminalService: any, onSelect: (string) -> (), keepFocus: () -> ())
+	--[=[
+		Builds the interactive picker shown in the autocomplete dropdown.
+
+		@param currentText The text typed so far.
+		@param terminalService The terminal service.
+		@param onSelect Called with the chosen value.
+		@param keepFocus Keeps the terminal input focused.
+		@return The picker frame.
+	]=]
+	CreateCustomUI = function(
+		currentText: string,
+		terminalService: any,
+		onSelect: (string) -> (),
+		keepFocus: () -> ()
+	)
 		local Frame = Instance.new("Frame")
 		Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		Frame.BorderSizePixel = 0
@@ -83,12 +151,12 @@ return {
 		Grid.Parent = Frame
 
 		local UIGridLayout = Instance.new("UIGridLayout")
-		UIGridLayout.CellSize = UDim2.new(1/7, -5, 0, 22)
+		UIGridLayout.CellSize = UDim2.new(1 / 7, -5, 0, 22)
 		UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 5)
 		UIGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIGridLayout.Parent = Grid
 
-		local days = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"}
+		local days = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" }
 		for i, d in ipairs(days) do
 			local lbl = Instance.new("TextLabel")
 			lbl.BackgroundTransparency = 1
@@ -124,6 +192,9 @@ return {
 
 		local dayButtons = {}
 
+		--[=[
+			Rebuilds the day buttons for the displayed month.
+		]=]
 		local function renderMonth()
 			for _, btn in ipairs(dayButtons) do
 				btn:Destroy()
@@ -182,7 +253,10 @@ return {
 		Prev.Parent = Header
 		Prev.MouseButton1Down:Connect(function()
 			curMonth -= 1
-			if curMonth < 1 then curMonth = 12; curYear -= 1 end
+			if curMonth < 1 then
+				curMonth = 12
+				curYear -= 1
+			end
 			renderMonth()
 			keepFocus()
 		end)
@@ -198,12 +272,15 @@ return {
 		Next.Parent = Header
 		Next.MouseButton1Down:Connect(function()
 			curMonth += 1
-			if curMonth > 12 then curMonth = 1; curYear += 1 end
+			if curMonth > 12 then
+				curMonth = 1
+				curYear += 1
+			end
 			renderMonth()
 			keepFocus()
 		end)
 
 		renderMonth()
 		return Frame
-	end
+	end,
 }

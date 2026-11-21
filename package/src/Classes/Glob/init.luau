@@ -34,6 +34,13 @@ local CLASSES: { [string]: string } = {
 	["print"] = " -~",
 }
 
+--[=[
+	Escapes a character so Lua patterns treat it literally.
+
+	@param c The character to test.
+
+	@return The resulting text.
+]=]
 local function escapeLua(c: string): string
 	if string.find(c, "[%^%$%(%)%%%.%[%]%*%+%-%?]") then
 		return "%" .. c
@@ -41,21 +48,34 @@ local function escapeLua(c: string): string
 	return c
 end
 
+--[=[
+	Escapes a character inside a Lua pattern set.
+
+	@param c The character to test.
+
+	@return The resulting text.
+]=]
 local function escapeSet(c: string): string
-	if c == "%" then return "%%" end
-	if c == "]" then return "%]" end
+	if c == "%" then
+		return "%%"
+	end
+	if c == "]" then
+		return "%]"
+	end
 	return c
 end
 
 --[=[
 	Compiles a glob to an unanchored Lua pattern.
+
+	@param pattern The pattern to match.
 ]=]
 function Glob.toLua(pattern: string): string
 	local out = {}
 	local i = 1
-	local len = #pattern
+	local length = #pattern
 
-	while i <= len do
+	while i <= length do
 		local c = string.sub(pattern, i, i)
 
 		if c == "\\" then
@@ -91,7 +111,7 @@ function Glob.toLua(pattern: string): string
 			end
 
 			local closed = false
-			while j <= len do
+			while j <= length do
 				local d = string.sub(pattern, j, j)
 				if d == "]" then
 					closed = true
@@ -142,6 +162,10 @@ end
 
 --[=[
 	True when the whole text matches the glob.
+
+	@param text The text to inspect.
+	@param pattern The pattern to match.
+	@param ignoreCase Whether matching ignores case.
 ]=]
 function Glob.match(text: string, pattern: string, ignoreCase: boolean?): boolean
 	if ignoreCase then
@@ -155,8 +179,18 @@ end
 
 --[=[
 	Finds the first glob match inside text. Returns start, end (Lua indices).
+
+	@param text The text to inspect.
+	@param pattern The pattern to match.
+	@param init The position to start searching from.
+	@param ignoreCase Whether matching ignores case.
 ]=]
-function Glob.find(text: string, pattern: string, init: number?, ignoreCase: boolean?): (number?, number?)
+function Glob.find(
+	text: string,
+	pattern: string,
+	init: number?,
+	ignoreCase: boolean?
+): (number?, number?)
 	if ignoreCase then
 		text = string.lower(text)
 		pattern = string.lower(pattern)

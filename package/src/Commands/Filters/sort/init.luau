@@ -10,9 +10,22 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `sort` command: Sort lines of stdin (case-sensitive by
+	default).
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
+--[=[
+	Splits a line into fields.
+
+	@param line The line to process.
+	@param delimiter The delimiter to use.
+
+	@return The resulting list.
+]=]
 local function splitFields(line: string, delimiter: string?): { string }
 	if delimiter then
 		return string.split(line, delimiter)
@@ -24,9 +37,18 @@ local function splitFields(line: string, delimiter: string?): { string }
 	return fields
 end
 
+--[=[
+	Parses a number with an optional K, M or G suffix.
+
+	@param text The text to inspect.
+
+	@return The resulting number.
+]=]
 local function humanNumber(text: string): number
 	local number, suffix = string.match(text, "^%s*([%+%-]?%d+%.?%d*)([kKmMgGtTpPeE]?)")
-	if not number then return 0 end
+	if not number then
+		return 0
+	end
 	local value = tonumber(number) or 0
 	local multipliers = { k = 1e3, m = 1e6, g = 1e9, t = 1e12, p = 1e15, e = 1e18 }
 	local key = string.lower(suffix)
@@ -41,8 +63,14 @@ return {
 	Permission = "Any",
 	Description = "Sort lines of stdin (case-sensitive by default)",
 	Args = {},
+	--[=[
+		Sort lines of stdin (case-sensitive by default).
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "rnufbdMhVsk:t:cz", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "rnufbdMhVsk:t:cz", {
 			reverse = "r",
 			numeric_sort = "n",
 			unique = "u",
@@ -59,8 +87,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`sort: {err}`, 2)
+		if errorValue then
+			context:Error(`sort: {errorValue}`, 2)
 			return ""
 		end
 
@@ -79,7 +107,8 @@ return {
 		local keyStart, keyEnd, keyNumeric, keyReverse, keyFold = nil, nil, false, false, false
 
 		if keySpec then
-			local startText, endText, flags = string.match(keySpec, "^(%d*%.?%d*),?(%d*%.?%d*)([nrf]*)")
+			local startText, endText, flags =
+				string.match(keySpec, "^(%d*%.?%d*),?(%d*%.?%d*)([nrf]*)")
 			keyStart = tonumber((string.match(startText or "1", "^%d+") or "1"))
 			keyEnd = tonumber((string.match(endText or "", "^%d+") or "")) or keyStart
 			keyNumeric = string.find(flags or "", "n", 1, true) ~= nil
@@ -87,6 +116,13 @@ return {
 			keyFold = string.find(flags or "", "f", 1, true) ~= nil
 		end
 
+		--[=[
+			Normalises a line for sorting.
+
+			@param value The value to convert.
+
+			@return The resulting text.
+		]=]
 		local function normalized(value: string): string
 			if options.b or (keySpec and string.find(keySpec, "b", 1, true)) then
 				value = string.gsub(value, "^%s+", "")
@@ -100,6 +136,13 @@ return {
 			return value
 		end
 
+		--[=[
+			Returns the comparison key for a line.
+
+			@param line The line to process.
+
+			@return The resulting text.
+		]=]
 		local function keyOf(line: string): string
 			if not keyStart then
 				return normalized(line)
@@ -109,7 +152,9 @@ return {
 			if keyEnd and keyEnd > keyStart then
 				local parts = {}
 				for i = keyStart, keyEnd do
-					if fields[i] then table.insert(parts, fields[i]) end
+					if fields[i] then
+						table.insert(parts, fields[i])
+					end
 				end
 				startField = table.concat(parts, delimiter or " ")
 			end
@@ -121,23 +166,33 @@ return {
 			if options.n or keyNumeric then
 				local na, nb = tonumber(ka), tonumber(kb)
 				if na and nb then
-					if na == nb then return a < b end
+					if na == nb then
+						return a < b
+					end
 					local result = na < nb
-					if options.r or keyReverse then result = not result end
+					if options.r or keyReverse then
+						result = not result
+					end
 					return result
 				end
 			elseif options.h then
 				local na, nb = humanNumber(ka), humanNumber(kb)
 				if na ~= nb then
 					local result = na < nb
-					if options.r or keyReverse then result = not result end
+					if options.r or keyReverse then
+						result = not result
+					end
 					return result
 				end
 			end
 
-			if ka == kb then return a < b end
+			if ka == kb then
+				return a < b
+			end
 			local result = ka < kb
-			if options.r or keyReverse then result = not result end
+			if options.r or keyReverse then
+				result = not result
+			end
 			return result
 		end)
 

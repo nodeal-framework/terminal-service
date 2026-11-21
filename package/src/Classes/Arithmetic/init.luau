@@ -15,8 +15,6 @@
 	Supports the usual integer operators, assignment, ternary, ++/-- and short-circuiting.
 ]=]
 
-local Arithmetic = {}
-
 type Node =
 	{ kind: "num", value: number }
 	| { kind: "var", name: string }
@@ -28,40 +26,87 @@ type Node =
 
 local BINARY_PRECEDENCE: { [string]: number } = {
 	[","] = 1,
-	["="] = 2, ["+="] = 2, ["-="] = 2, ["*="] = 2, ["/="] = 2, ["%="] = 2,
-	["<<="] = 2, [">>="] = 2, ["&="] = 2, ["|="] = 2, ["^="] = 2, ["**="] = 2,
+	["="] = 2,
+	["+="] = 2,
+	["-="] = 2,
+	["*="] = 2,
+	["/="] = 2,
+	["%="] = 2,
+	["<<="] = 2,
+	[">>="] = 2,
+	["&="] = 2,
+	["|="] = 2,
+	["^="] = 2,
+	["**="] = 2,
 	["?"] = 3,
 	["||"] = 4,
 	["&&"] = 5,
 	["|"] = 6,
 	["^"] = 7,
 	["&"] = 8,
-	["=="] = 9, ["!="] = 9,
-	["<"] = 10, ["<="] = 10, [">"] = 10, [">="] = 10,
-	["<<"] = 11, [">>"] = 11,
-	["+"] = 12, ["-"] = 12,
-	["*"] = 13, ["/"] = 13, ["%"] = 13,
+	["=="] = 9,
+	["!="] = 9,
+	["<"] = 10,
+	["<="] = 10,
+	[">"] = 10,
+	[">="] = 10,
+	["<<"] = 11,
+	[">>"] = 11,
+	["+"] = 12,
+	["-"] = 12,
+	["*"] = 13,
+	["/"] = 13,
+	["%"] = 13,
 	["**"] = 14,
 }
 
 local RIGHT_ASSOC = {
-	["="] = true, ["+="] = true, ["-="] = true, ["*="] = true, ["/="] = true,
-	["%="] = true, ["<<="] = true, [">>="] = true, ["&="] = true, ["|="] = true,
-	["^="] = true, ["**="] = true, ["**"] = true, ["?"] = true,
+	["="] = true,
+	["+="] = true,
+	["-="] = true,
+	["*="] = true,
+	["/="] = true,
+	["%="] = true,
+	["<<="] = true,
+	[">>="] = true,
+	["&="] = true,
+	["|="] = true,
+	["^="] = true,
+	["**="] = true,
+	["**"] = true,
+	["?"] = true,
 }
 
 local ASSIGN_OPS = {
-	["="] = true, ["+="] = true, ["-="] = true, ["*="] = true, ["/="] = true,
-	["%="] = true, ["<<="] = true, [">>="] = true, ["&="] = true, ["|="] = true,
-	["^="] = true, ["**="] = true,
+	["="] = true,
+	["+="] = true,
+	["-="] = true,
+	["*="] = true,
+	["/="] = true,
+	["%="] = true,
+	["<<="] = true,
+	[">>="] = true,
+	["&="] = true,
+	["|="] = true,
+	["^="] = true,
+	["**="] = true,
 }
 
+local Arithmetic = {}
+
+--[=[
+	Splits an arithmetic expression into number, variable and operator tokens.
+
+	@param text The text to inspect.
+
+	@return The resulting list.
+]=]
 local function tokenize(text: string): { { kind: string, value: string } }
 	local tokens = {}
 	local i = 1
-	local len = #text
+	local length = #text
 
-	while i <= len do
+	while i <= length do
 		local c = string.sub(text, i, i)
 
 		if string.match(c, "%s") then
@@ -126,10 +171,27 @@ local function tokenize(text: string): { { kind: string, value: string } }
 			if three == "<<=" or three == ">>=" or three == "**=" then
 				table.insert(tokens, { kind = "op", value = three })
 				i += 3
-			elseif two == "**" or two == "<<" or two == ">>" or two == "<=" or two == ">="
-				or two == "==" or two == "!=" or two == "&&" or two == "||" or two == "++"
-				or two == "--" or two == "+=" or two == "-=" or two == "*=" or two == "/="
-				or two == "%=" or two == "&=" or two == "|=" or two == "^=" then
+			elseif
+				two == "**"
+				or two == "<<"
+				or two == ">>"
+				or two == "<="
+				or two == ">="
+				or two == "=="
+				or two == "!="
+				or two == "&&"
+				or two == "||"
+				or two == "++"
+				or two == "--"
+				or two == "+="
+				or two == "-="
+				or two == "*="
+				or two == "/="
+				or two == "%="
+				or two == "&="
+				or two == "|="
+				or two == "^="
+			then
 				table.insert(tokens, { kind = "op", value = two })
 				i += 2
 			else
@@ -145,38 +207,77 @@ end
 local Parser = {}
 Parser.__index = Parser
 
+--[=[
+	Creates a parser over a token list.
+
+	@param tokens The token list to parse.
+
+	@return The new parser.
+]=]
 function Parser.new(tokens)
 	return setmetatable({ tokens = tokens, pos = 1 }, Parser)
 end
 
+--[=[
+	Returns the next token value without consuming it.
+
+	@return The resulting text, or nil.
+]=]
 function Parser:peek(): string?
 	local t = self.tokens[self.pos]
-	if t then return t.value end
+	if t then
+		return t.value
+	end
 	return nil
 end
 
+--[=[
+	Returns the kind of the next token without consuming it.
+
+	@return The resulting text, or nil.
+]=]
 function Parser:peekKind(): string?
 	local t = self.tokens[self.pos]
-	if t then return t.kind end
+	if t then
+		return t.kind
+	end
 	return nil
 end
 
+--[=[
+	Consumes and returns the next token.
+
+	@return The consumed token.
+]=]
 function Parser:advance()
 	local t = self.tokens[self.pos]
 	self.pos += 1
 	return t
 end
 
+--[=[
+	Parses an expression at or above the given precedence.
+
+	@param minPrec The minimum precedence to accept.
+
+	@return The result, or nil.
+]=]
 function Parser:parseExpression(minPrec: number): Node?
 	local left = self:parseUnary()
-	if not left then return nil end
+	if not left then
+		return nil
+	end
 
 	while true do
 		local op = self:peek()
-		if not op then break end
+		if not op then
+			break
+		end
 
 		local prec = BINARY_PRECEDENCE[op]
-		if not prec or prec < minPrec then break end
+		if not prec or prec < minPrec then
+			break
+		end
 
 		self:advance()
 
@@ -187,41 +288,48 @@ function Parser:parseExpression(minPrec: number): Node?
 			end
 			self:advance()
 			local no = self:parseExpression(prec)
-			left = { kind = "ternary", cond = left, yes = yes, no = no } :: Node
+			left = { kind = "ternary", cond = left, yes = yes, no = no }
 		elseif ASSIGN_OPS[op] then
 			if left.kind ~= "var" then
 				error("arithmetic: assignment to non-variable", 0)
 			end
 			local right = self:parseExpression(if RIGHT_ASSOC[op] then prec else prec + 1)
-			left = { kind = "assign", op = op, name = left.name, value = right } :: Node
+			left = { kind = "assign", op = op, name = left.name, value = right }
 		else
 			local nextMin = if RIGHT_ASSOC[op] then prec else prec + 1
 			local right = self:parseExpression(nextMin)
-			left = { kind = "binary", op = op, left = left, right = right } :: Node
+			left = { kind = "binary", op = op, left = left, right = right }
 		end
 	end
 
 	return left
 end
 
+--[=[
+	Parses a prefix or postfix unary expression.
+
+	@return The result, or nil.
+]=]
 function Parser:parseUnary(): Node?
 	local op = self:peek()
 
 	if op == "+" or op == "-" or op == "!" or op == "~" then
 		self:advance()
 		local value = self:parseUnary()
-		return { kind = "unary", op = op, value = value } :: Node
+		return { kind = "unary", op = op, value = value }
 	elseif op == "++" or op == "--" then
 		self:advance()
 		local value = self:parseUnary()
 		if not value or value.kind ~= "var" then
 			error("arithmetic: ++/-- needs a variable", 0)
 		end
-		return { kind = "incdec", op = op, name = value.name, prefix = true } :: Node
+		return { kind = "incdec", op = op, name = value.name, prefix = true }
 	end
 
 	local node = self:parsePrimary()
-	if not node then return nil end
+	if not node then
+		return nil
+	end
 
 	local post = self:peek()
 	if post == "++" or post == "--" then
@@ -229,24 +337,31 @@ function Parser:parseUnary(): Node?
 			error("arithmetic: ++/-- needs a variable", 0)
 		end
 		self:advance()
-		node = { kind = "incdec", op = post, name = node.name, prefix = false } :: Node
+		node = { kind = "incdec", op = post, name = node.name, prefix = false }
 	end
 
 	return node
 end
 
+--[=[
+	Parses a number, variable or parenthesised expression.
+
+	@return The result, or nil.
+]=]
 function Parser:parsePrimary(): Node?
 	local kind = self:peekKind()
 	local value = self:peek()
 
-	if not kind then return nil end
+	if not kind then
+		return nil
+	end
 
 	if kind == "num" then
 		self:advance()
-		return { kind = "num", value = tonumber(value) or 0 } :: Node
+		return { kind = "num", value = tonumber(value) or 0 }
 	elseif kind == "var" then
 		self:advance()
-		return { kind = "var", name = value } :: Node
+		return { kind = "var", name = value }
 	elseif value == "(" then
 		self:advance()
 		local node = self:parseExpression(1)
@@ -260,6 +375,14 @@ function Parser:parsePrimary(): Node?
 	end
 end
 
+--[=[
+	Divides two integers and truncates the result toward zero.
+
+	@param a The first value.
+	@param b The second value.
+
+	@return The resulting number.
+]=]
 local function trunc(a: number, b: number): number
 	if b == 0 then
 		error("division by 0", 0)
@@ -271,14 +394,31 @@ local function trunc(a: number, b: number): number
 	return math.ceil(q)
 end
 
+--[=[
+	Converts a value to a number, defaulting to zero.
+
+	@param value The value to convert.
+
+	@return The resulting number.
+]=]
 local function toNumber(value: any): number
 	local n = tonumber(value)
-	if not n then return 0 end
+	if not n then
+		return 0
+	end
 	return n
 end
 
 local Evaluator = {}
 
+--[=[
+	Evaluates one arithmetic syntax node.
+
+	@param node The syntax tree node to evaluate.
+	@param shell The shell instance.
+
+	@return The resulting number.
+]=]
 local function evalNode(node: Node, shell): number
 	if node.kind == "num" then
 		return node.value
@@ -286,13 +426,21 @@ local function evalNode(node: Node, shell): number
 		return toNumber(shell:GetVar(node.name))
 	elseif node.kind == "unary" then
 		local v = evalNode(node.value, shell)
-		if node.op == "+" then return v end
-		if node.op == "-" then return -v end
+		if node.op == "+" then
+			return v
+		end
+		if node.op == "-" then
+			return -v
+		end
 		if node.op == "!" then
-			if v == 0 then return 1 end
+			if v == 0 then
+				return 1
+			end
 			return 0
 		end
-		if node.op == "~" then return -v - 1 end
+		if node.op == "~" then
+			return -v - 1
+		end
 		return 0
 	elseif node.kind == "ternary" then
 		if evalNode(node.cond, shell) ~= 0 then
@@ -305,17 +453,28 @@ local function evalNode(node: Node, shell): number
 		local op = string.sub(node.op, 1, #node.op - 1)
 		local result = value
 
-		if op == "+" then result = current + value
-		elseif op == "-" then result = current - value
-		elseif op == "*" then result = current * value
-		elseif op == "/" then result = trunc(current, value)
-		elseif op == "%" then result = current - trunc(current, value) * value
-		elseif op == "<<" then result = current * 2 ^ value
-		elseif op == ">>" then result = math.floor(current / 2 ^ value)
-		elseif op == "&" then result = bit32.band(current, value)
-		elseif op == "|" then result = bit32.bor(current, value)
-		elseif op == "^" then result = bit32.bxor(current, value)
-		elseif op == "**" then result = current ^ value
+		if op == "+" then
+			result = current + value
+		elseif op == "-" then
+			result = current - value
+		elseif op == "*" then
+			result = current * value
+		elseif op == "/" then
+			result = trunc(current, value)
+		elseif op == "%" then
+			result = current - trunc(current, value) * value
+		elseif op == "<<" then
+			result = current * 2 ^ value
+		elseif op == ">>" then
+			result = math.floor(current / 2 ^ value)
+		elseif op == "&" then
+			result = bit32.band(current, value)
+		elseif op == "|" then
+			result = bit32.bor(current, value)
+		elseif op == "^" then
+			result = bit32.bxor(current, value)
+		elseif op == "**" then
+			result = current ^ value
 		end
 
 		shell:SetVar(node.name, tostring(result))
@@ -329,7 +488,9 @@ local function evalNode(node: Node, shell): number
 			result = current - 1
 		end
 		shell:SetVar(node.name, tostring(result))
-		if node.prefix then return result end
+		if node.prefix then
+			return result
+		end
 		return current
 	elseif node.kind == "binary" then
 		local op = node.op
@@ -338,46 +499,77 @@ local function evalNode(node: Node, shell): number
 			evalNode(node.left, shell)
 			return evalNode(node.right, shell)
 		elseif op == "&&" then
-			if evalNode(node.left, shell) == 0 then return 0 end
-			if evalNode(node.right, shell) ~= 0 then return 1 end
+			if evalNode(node.left, shell) == 0 then
+				return 0
+			end
+			if evalNode(node.right, shell) ~= 0 then
+				return 1
+			end
 			return 0
 		elseif op == "||" then
-			if evalNode(node.left, shell) ~= 0 then return 1 end
-			if evalNode(node.right, shell) ~= 0 then return 1 end
+			if evalNode(node.left, shell) ~= 0 then
+				return 1
+			end
+			if evalNode(node.right, shell) ~= 0 then
+				return 1
+			end
 			return 0
 		end
 
 		local a = evalNode(node.left, shell)
 		local b = evalNode(node.right, shell)
 
-		if op == "+" then return a + b
-		elseif op == "-" then return a - b
-		elseif op == "*" then return a * b
-		elseif op == "/" then return trunc(a, b)
-		elseif op == "%" then return a - trunc(a, b) * b
-		elseif op == "**" then return a ^ b
-		elseif op == "<<" then return a * 2 ^ b
-		elseif op == ">>" then return math.floor(a / 2 ^ b)
-		elseif op == "&" then return bit32.band(a, b)
-		elseif op == "|" then return bit32.bor(a, b)
-		elseif op == "^" then return bit32.bxor(a, b)
+		if op == "+" then
+			return a + b
+		elseif op == "-" then
+			return a - b
+		elseif op == "*" then
+			return a * b
+		elseif op == "/" then
+			return trunc(a, b)
+		elseif op == "%" then
+			return a - trunc(a, b) * b
+		elseif op == "**" then
+			return a ^ b
+		elseif op == "<<" then
+			return a * 2 ^ b
+		elseif op == ">>" then
+			return math.floor(a / 2 ^ b)
+		elseif op == "&" then
+			return bit32.band(a, b)
+		elseif op == "|" then
+			return bit32.bor(a, b)
+		elseif op == "^" then
+			return bit32.bxor(a, b)
 		elseif op == "==" then
-			if a == b then return 1 end
+			if a == b then
+				return 1
+			end
 			return 0
 		elseif op == "!=" then
-			if a ~= b then return 1 end
+			if a ~= b then
+				return 1
+			end
 			return 0
 		elseif op == "<" then
-			if a < b then return 1 end
+			if a < b then
+				return 1
+			end
 			return 0
 		elseif op == "<=" then
-			if a <= b then return 1 end
+			if a <= b then
+				return 1
+			end
 			return 0
 		elseif op == ">" then
-			if a > b then return 1 end
+			if a > b then
+				return 1
+			end
 			return 0
 		elseif op == ">=" then
-			if a >= b then return 1 end
+			if a >= b then
+				return 1
+			end
 			return 0
 		end
 	end
@@ -387,6 +579,9 @@ end
 
 --[=[
 	Evaluates an arithmetic expression and returns the integer result.
+
+	@param expression The expression to evaluate.
+	@param shell The shell instance.
 ]=]
 function Arithmetic.eval(expression: string, shell): number
 	local tokens = tokenize(expression)

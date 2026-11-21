@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `shuf` command: Shuffle lines of stdin or a numeric range.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -19,8 +23,14 @@ return {
 	Aliases = { "randomize", "shuffle" },
 	Description = "Shuffle lines of stdin or a numeric range",
 	Args = {},
+	--[=[
+		Shuffle lines of stdin or a numeric range.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "n:ri:e:z", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "n:ri:e:z", {
 			head_count = "n",
 			["repeat"] = "r",
 			input_range = "i",
@@ -28,8 +38,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`shuf: {err}`, 2)
+		if errorValue then
+			context:Error(`shuf: {errorValue}`, 2)
 			return ""
 		end
 
@@ -46,7 +56,9 @@ return {
 				table.insert(items, tostring(value))
 			end
 		elseif options.e then
-			for _, value in operands do table.insert(items, value) end
+			for _, value in operands do
+				table.insert(items, value)
+			end
 		elseif #operands > 0 then
 			context:Error(`shuf: {operands[1]}: No such file or directory`, 1)
 			return ""
@@ -54,6 +66,11 @@ return {
 			items = Text.lines(context:GetInput())
 		end
 
+		--[=[
+			Shuffles a list in place.
+
+			@param list The list to process.
+		]=]
 		local function shuffle(list)
 			for i = #list, 2, -1 do
 				local j = math.random(1, i)
@@ -64,7 +81,9 @@ return {
 		if options.r then
 			local count = tonumber(options.n) or #items
 			local out = {}
-			if #items == 0 then return "" end
+			if #items == 0 then
+				return ""
+			end
 			for _ = 1, count do
 				table.insert(out, items[math.random(1, #items)])
 			end

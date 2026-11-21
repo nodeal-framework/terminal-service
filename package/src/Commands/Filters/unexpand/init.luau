@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `unexpand` command: Convert leading spaces to tabs.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,14 +22,20 @@ return {
 	Permission = "Any",
 	Description = "Convert leading spaces to tabs",
 	Args = {},
+	--[=[
+		Convert leading spaces to tabs.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "at:", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "at:", {
 			all = "a",
 			tabs = "t",
 		})
 
-		if err then
-			context:Error(`unexpand: {err}`, 2)
+		if errorValue then
+			context:Error(`unexpand: {errorValue}`, 2)
 			return ""
 		end
 

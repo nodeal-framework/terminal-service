@@ -21,9 +21,6 @@
 	Matching is leftmost-longest, like POSIX grep and sed.
 ]=]
 
-local Regex = {}
-Regex.__index = Regex
-
 local POSIX = {
 	alpha = true,
 	alnum = true,
@@ -42,11 +39,22 @@ local POSIX = {
 
 local MATCH_LIMIT = 200000
 
+local Regex = {}
+Regex.__index = Regex
+
 --// Parser //--
 
 local Parser = {}
 Parser.__index = Parser
 
+--[=[
+	Creates a parser over an extended regular expression.
+
+	@param pattern The pattern to match.
+	@param ignoreCase Whether matching ignores case.
+
+	@return The new parser.
+]=]
 function Parser.new(pattern: string, ignoreCase: boolean)
 	return setmetatable({
 		Pattern = pattern,
@@ -56,17 +64,34 @@ function Parser.new(pattern: string, ignoreCase: boolean)
 	}, Parser)
 end
 
+--[=[
+	Returns a pattern character without consuming it.
+
+	@param offset The offset from the current position.
+
+	@return The resulting text.
+]=]
 function Parser:peek(offset: number?): string
 	local index = self.Pos + (offset or 0)
 	return string.sub(self.Pattern, index, index)
 end
 
+--[=[
+	Consumes and returns one pattern character.
+
+	@return The resulting text.
+]=]
 function Parser:take(): string
 	local c = string.sub(self.Pattern, self.Pos, self.Pos)
 	self.Pos += 1
 	return c
 end
 
+--[=[
+	Parses an alternation of concatenations.
+
+	@return The parsed pattern node.
+]=]
 function Parser:parseAlt()
 	local branches = { self:parseConcat() }
 
@@ -81,6 +106,11 @@ function Parser:parseAlt()
 	return { T = "alt", Items = branches }
 end
 
+--[=[
+	Parses a concatenation of repeated atoms.
+
+	@return The parsed pattern node.
+]=]
 function Parser:parseConcat()
 	local items = {}
 
@@ -98,17 +128,33 @@ function Parser:parseConcat()
 	return { T = "concat", Items = items }
 end
 
+--[=[
+	Parses a `{m}`, `{m,}` or `{m,n}` repetition bound.
+
+	@param parser The parser to read from.
+
+	@return The repetition bounds, or nil.
+]=]
 local function parseBounds(parser: Parser)
 	local save = parser.Pos
-	if parser:peek() ~= "{" then return nil end
+	if parser:peek() ~= "{" then
+		return nil
+	end
 	parser.Pos += 1
 
+	--[=[
+		Reads a decimal repetition count.
+
+		@return The resulting number, or nil.
+	]=]
 	local function readNumber(): number?
 		local start = parser.Pos
 		while string.match(parser:peek(), "%d") do
 			parser.Pos += 1
 		end
-		if parser.Pos == start then return nil end
+		if parser.Pos == start then
+			return nil
+		end
 		return tonumber(string.sub(parser.Pattern, start, parser.Pos - 1))
 	end
 
@@ -141,6 +187,11 @@ local function parseBounds(parser: Parser)
 	return min, max
 end
 
+--[=[
+	Parses an atom followed by its repetition operators.
+
+	@return The parsed pattern node.
+]=]
 function Parser:parseRepeat()
 	local node = self:parseAtom()
 
@@ -170,29 +221,68 @@ function Parser:parseRepeat()
 	return node
 end
 
+--[=[
+	Creates one item of a bracket expression.
+
+	@param kind The kind to classify.
+	@param value The value to convert.
+
+	@return The bracket-expression item.
+]=]
 local function classItem(kind: string, value)
 	return { Kind = kind, Value = value }
 end
 
+--[=[
+	Parses one character or range inside a bracket expression.
+
+	@return The parsed class item.
+]=]
 function Parser:parseClassChar()
 	local c = self:peek()
 
 	if c == "\\" then
 		self.Pos += 1
 		local n = self:take()
-		if n == "d" then return classItem("class", "digit") end
-		if n == "D" then return classItem("notclass", "digit") end
-		if n == "w" then return classItem("class", "word") end
-		if n == "W" then return classItem("notclass", "word") end
-		if n == "s" then return classItem("class", "space") end
-		if n == "S" then return classItem("notclass", "space") end
-		if n == "n" then return classItem("char", "\n") end
-		if n == "t" then return classItem("char", "\t") end
-		if n == "r" then return classItem("char", "\r") end
-		if n == "f" then return classItem("char", "\f") end
-		if n == "v" then return classItem("char", "\v") end
-		if n == "b" then return classItem("char", "\b") end
-		if n == "" then return classItem("char", "\\") end
+		if n == "d" then
+			return classItem("class", "digit")
+		end
+		if n == "D" then
+			return classItem("notclass", "digit")
+		end
+		if n == "w" then
+			return classItem("class", "word")
+		end
+		if n == "W" then
+			return classItem("notclass", "word")
+		end
+		if n == "s" then
+			return classItem("class", "space")
+		end
+		if n == "S" then
+			return classItem("notclass", "space")
+		end
+		if n == "n" then
+			return classItem("char", "\n")
+		end
+		if n == "t" then
+			return classItem("char", "\t")
+		end
+		if n == "r" then
+			return classItem("char", "\r")
+		end
+		if n == "f" then
+			return classItem("char", "\f")
+		end
+		if n == "v" then
+			return classItem("char", "\v")
+		end
+		if n == "b" then
+			return classItem("char", "\b")
+		end
+		if n == "" then
+			return classItem("char", "\\")
+		end
 		return classItem("char", n)
 	end
 
@@ -200,6 +290,11 @@ function Parser:parseClassChar()
 	return classItem("char", c)
 end
 
+--[=[
+	Parses a bracket expression.
+
+	@return The parsed bracket expression.
+]=]
 function Parser:parseClass()
 	local negate = false
 	if self:peek() == "^" then
@@ -232,7 +327,12 @@ function Parser:parseClass()
 		else
 			local item = self:parseClassChar()
 
-			if item.Kind == "char" and self:peek() == "-" and self:peek(1) ~= "]" and self:peek(1) ~= "" then
+			if
+				item.Kind == "char"
+				and self:peek() == "-"
+				and self:peek(1) ~= "]"
+				and self:peek(1) ~= ""
+			then
 				local save = self.Pos
 				self.Pos += 1
 				local high = self:parseClassChar()
@@ -252,31 +352,73 @@ function Parser:parseClass()
 	return { T = "class", Negate = negate, Items = items }
 end
 
+--[=[
+	Parses an escape sequence inside a pattern.
+
+	@return The parsed escape sequence.
+]=]
 function Parser:parseEscape()
 	local n = self:take()
 
-	if n == "d" then return { T = "class", Negate = false, Items = { classItem("class", "digit") } } end
-	if n == "D" then return { T = "class", Negate = true, Items = { classItem("class", "digit") } } end
-	if n == "w" then return { T = "class", Negate = false, Items = { classItem("class", "word") } } end
-	if n == "W" then return { T = "class", Negate = true, Items = { classItem("class", "word") } } end
-	if n == "s" then return { T = "class", Negate = false, Items = { classItem("class", "space") } } end
-	if n == "S" then return { T = "class", Negate = true, Items = { classItem("class", "space") } } end
-	if n == "b" then return { T = "boundary", Negate = false } end
-	if n == "B" then return { T = "boundary", Negate = true } end
-	if n == "<" then return { T = "wordstart" } end
-	if n == ">" then return { T = "wordend" } end
-	if n == "n" then return { T = "char", Char = "\n" } end
-	if n == "t" then return { T = "char", Char = "\t" } end
-	if n == "r" then return { T = "char", Char = "\r" } end
-	if n == "f" then return { T = "char", Char = "\f" } end
-	if n == "v" then return { T = "char", Char = "\v" } end
-	if n == "" then return { T = "char", Char = "\\" } end
+	if n == "d" then
+		return { T = "class", Negate = false, Items = { classItem("class", "digit") } }
+	end
+	if n == "D" then
+		return { T = "class", Negate = true, Items = { classItem("class", "digit") } }
+	end
+	if n == "w" then
+		return { T = "class", Negate = false, Items = { classItem("class", "word") } }
+	end
+	if n == "W" then
+		return { T = "class", Negate = true, Items = { classItem("class", "word") } }
+	end
+	if n == "s" then
+		return { T = "class", Negate = false, Items = { classItem("class", "space") } }
+	end
+	if n == "S" then
+		return { T = "class", Negate = true, Items = { classItem("class", "space") } }
+	end
+	if n == "b" then
+		return { T = "boundary", Negate = false }
+	end
+	if n == "B" then
+		return { T = "boundary", Negate = true }
+	end
+	if n == "<" then
+		return { T = "wordstart" }
+	end
+	if n == ">" then
+		return { T = "wordend" }
+	end
+	if n == "n" then
+		return { T = "char", Char = "\n" }
+	end
+	if n == "t" then
+		return { T = "char", Char = "\t" }
+	end
+	if n == "r" then
+		return { T = "char", Char = "\r" }
+	end
+	if n == "f" then
+		return { T = "char", Char = "\f" }
+	end
+	if n == "v" then
+		return { T = "char", Char = "\v" }
+	end
+	if n == "" then
+		return { T = "char", Char = "\\" }
+	end
 	if string.match(n, "%d") and n ~= "0" then
 		return { T = "backref", Index = tonumber(n) }
 	end
 	return { T = "char", Char = n }
 end
 
+--[=[
+	Parses a literal, class, group or anchor.
+
+	@return The parsed pattern node.
+]=]
 function Parser:parseAtom()
 	local c = self:peek()
 
@@ -312,14 +454,38 @@ end
 
 --// Matching //--
 
+--[=[
+	Returns the character at a position, or an empty string.
+
+	@param text The text to inspect.
+	@param pos The text position.
+
+	@return The resulting text.
+]=]
 local function charAt(text: string, pos: number): string
 	return string.sub(text, pos, pos)
 end
 
+--[=[
+	Checks whether a character is a word character.
+
+	@param c The character to test.
+
+	@return True when the condition holds.
+]=]
 local function isWordChar(c: string): boolean
 	return c ~= "" and string.match(c, "[%w_]") ~= nil
 end
 
+--[=[
+	Compares two characters, optionally ignoring case.
+
+	@param a The first value.
+	@param b The second value.
+	@param ignoreCase Whether matching ignores case.
+
+	@return True when the condition holds.
+]=]
 local function charEqual(a: string, b: string, ignoreCase: boolean): boolean
 	if ignoreCase then
 		return string.lower(a) == string.lower(b)
@@ -327,19 +493,49 @@ local function charEqual(a: string, b: string, ignoreCase: boolean): boolean
 	return a == b
 end
 
-local function posixMatch(name: string, c: string): boolean
-	if c == "" then return false end
+--[=[
+	Matches a POSIX character class.
 
-	if name == "digit" then return string.match(c, "%d") ~= nil end
-	if name == "word" then return string.match(c, "[%w_]") ~= nil end
-	if name == "alpha" then return string.match(c, "%a") ~= nil end
-	if name == "alnum" then return string.match(c, "[%a%d]") ~= nil end
-	if name == "lower" then return string.match(c, "%l") ~= nil end
-	if name == "upper" then return string.match(c, "%u") ~= nil end
-	if name == "space" then return string.match(c, "%s") ~= nil end
-	if name == "blank" then return c == " " or c == "\t" end
-	if name == "punct" then return string.match(c, "%p") ~= nil end
-	if name == "xdigit" then return string.match(c, "%x") ~= nil end
+	@param name The name to look up.
+	@param c The character to test.
+
+	@return True when the condition holds.
+]=]
+local function posixMatch(name: string, c: string): boolean
+	if c == "" then
+		return false
+	end
+
+	if name == "digit" then
+		return string.match(c, "%d") ~= nil
+	end
+	if name == "word" then
+		return string.match(c, "[%w_]") ~= nil
+	end
+	if name == "alpha" then
+		return string.match(c, "%a") ~= nil
+	end
+	if name == "alnum" then
+		return string.match(c, "[%a%d]") ~= nil
+	end
+	if name == "lower" then
+		return string.match(c, "%l") ~= nil
+	end
+	if name == "upper" then
+		return string.match(c, "%u") ~= nil
+	end
+	if name == "space" then
+		return string.match(c, "%s") ~= nil
+	end
+	if name == "blank" then
+		return c == " " or c == "\t"
+	end
+	if name == "punct" then
+		return string.match(c, "%p") ~= nil
+	end
+	if name == "xdigit" then
+		return string.match(c, "%x") ~= nil
+	end
 	if name == "graph" then
 		local b = string.byte(c)
 		return b ~= nil and b > 32 and b < 127
@@ -356,14 +552,27 @@ local function posixMatch(name: string, c: string): boolean
 	return false
 end
 
+--[=[
+	Matches one bracket-expression item.
+
+	@param item The class item to test.
+	@param c The character to test.
+	@param ignoreCase Whether matching ignores case.
+
+	@return True when the condition holds.
+]=]
 local function classItemMatches(item, c: string, ignoreCase: boolean): boolean
-	if c == "" then return false end
+	if c == "" then
+		return false
+	end
 
 	if item.Kind == "char" then
 		return charEqual(item.Value, c, ignoreCase)
 	elseif item.Kind == "range" then
 		local b = string.byte(c)
-		if not b then return false end
+		if not b then
+			return false
+		end
 		if b >= string.byte(item.Lo) and b <= string.byte(item.Hi) then
 			return true
 		end
@@ -385,8 +594,19 @@ local function classItemMatches(item, c: string, ignoreCase: boolean): boolean
 	return false
 end
 
+--[=[
+	Matches a complete bracket expression.
+
+	@param node The syntax tree node to evaluate.
+	@param c The character to test.
+	@param ignoreCase Whether matching ignores case.
+
+	@return True when the condition holds.
+]=]
 local function classMatches(node, c: string, ignoreCase: boolean): boolean
-	if c == "" then return false end
+	if c == "" then
+		return false
+	end
 
 	local found = false
 	for _, item in node.Items do
@@ -402,6 +622,13 @@ local function classMatches(node, c: string, ignoreCase: boolean): boolean
 	return found
 end
 
+--[=[
+	Copies a capture table.
+
+	@param captures The capture table.
+
+	@return A copy of the capture table.
+]=]
 local function copyCaptures(captures)
 	local copy = {}
 	for key, value in captures do
@@ -410,15 +637,44 @@ local function copyCaptures(captures)
 	return copy
 end
 
-local function stringStartsWith(text: string, pos: number, value: string, ignoreCase: boolean): boolean
+--[=[
+	Checks whether a string occurs at a position.
+
+	@param text The text to inspect.
+	@param pos The text position.
+	@param value The value to convert.
+	@param ignoreCase Whether matching ignores case.
+
+	@return True when the condition holds.
+]=]
+local function stringStartsWith(
+	text: string,
+	pos: number,
+	value: string,
+	ignoreCase: boolean
+): boolean
 	local candidate = string.sub(text, pos, pos + #value - 1)
-	if #candidate ~= #value then return false end
+	if #candidate ~= #value then
+		return false
+	end
 	if ignoreCase then
 		return string.lower(candidate) == string.lower(value)
 	end
 	return candidate == value
 end
 
+--[=[
+	Matches a pattern node and emits every successful continuation.
+
+	@param node The syntax tree node to evaluate.
+	@param text The text to inspect.
+	@param pos The text position.
+	@param captures The capture table.
+	@param emit The callback receiving each match.
+	@param context The command context.
+
+	@return True when a match was found.
+]=]
 local function match(node, text: string, pos: number, captures, emit, context)
 	context.Steps += 1
 	if context.Steps > MATCH_LIMIT then
@@ -474,6 +730,13 @@ local function match(node, text: string, pos: number, captures, emit, context)
 		end
 	elseif kind == "concat" then
 		local items = node.Items
+		--[=[
+			Continues a sequence match at the next item.
+
+			@param index The position to start at.
+			@param at The current text position.
+			@param caps The capture table to extend.
+		]=]
 		local function step(index: number, at: number, caps)
 			if index > #items then
 				emit(at, caps)
@@ -498,8 +761,19 @@ local function match(node, text: string, pos: number, captures, emit, context)
 		local minimum = node.Min
 		local maximum = node.Max
 
+		--[=[
+			Continues a repetition match from a given count.
+
+			@param count The count to apply.
+			@param at The current text position.
+			@param caps The capture table to extend.
+
+			@return True when a repetition matched.
+		]=]
 		local function repeatFrom(count: number, at: number, caps)
-			if context.Steps > MATCH_LIMIT then return end
+			if context.Steps > MATCH_LIMIT then
+				return
+			end
 
 			if count < maximum then
 				match(node.Node, text, at, caps, function(nextAt, nextCaps)
@@ -529,6 +803,8 @@ end
 --[=[
 	Translates a POSIX basic regular expression to ERE. In BRE, `\|`, `\(`, `\)`,
 	`\+`, `\?` and `\{...\}` are operators and the unescaped forms are literals.
+
+	@param pattern The pattern to match.
 ]=]
 function Regex.breToEre(pattern: string): string
 	local out = {}
@@ -540,7 +816,18 @@ function Regex.breToEre(pattern: string): string
 
 		if c == "\\" then
 			local n = string.sub(pattern, i + 1, i + 1)
-			if not inSet and (n == "|" or n == "(" or n == ")" or n == "+" or n == "?" or n == "{" or n == "}") then
+			if
+				not inSet
+				and (
+					n == "|"
+					or n == "("
+					or n == ")"
+					or n == "+"
+					or n == "?"
+					or n == "{"
+					or n == "}"
+				)
+			then
 				table.insert(out, n)
 			else
 				table.insert(out, "\\" .. n)
@@ -554,7 +841,10 @@ function Regex.breToEre(pattern: string): string
 			inSet = false
 			table.insert(out, c)
 			i += 1
-		elseif not inSet and (c == "(" or c == ")" or c == "|" or c == "+" or c == "?" or c == "{" or c == "}") then
+		elseif
+			not inSet
+			and (c == "(" or c == ")" or c == "|" or c == "+" or c == "?" or c == "{" or c == "}")
+		then
 			table.insert(out, "\\" .. c)
 			i += 1
 		else
@@ -568,6 +858,9 @@ end
 
 --[=[
 	Compiles an ERE into an object with Find().
+
+	@param pattern The pattern to match.
+	@param ignoreCase Whether matching ignores case.
 ]=]
 function Regex.compile(pattern: string, ignoreCase: boolean?)
 	local parser = Parser.new(pattern, ignoreCase == true)
@@ -581,6 +874,9 @@ end
 
 --[=[
 	Finds the leftmost-longest match. Returns start, end, captures.
+
+	@param text The text to inspect.
+	@param init The position to start searching from.
 ]=]
 function Regex:Find(text: string, init: number?)
 	local start = math.max(1, init or 1)
@@ -608,12 +904,21 @@ function Regex:Find(text: string, init: number?)
 	return nil, nil, nil
 end
 
+--[=[
+	Checks whether the pattern matches anywhere in the text.
+
+	@param text The text to inspect.
+
+	@return True when the condition holds.
+]=]
 function Regex:Test(text: string): boolean
 	return self:Find(text) ~= nil
 end
 
 --[=[
 	All non-overlapping matches (for grep -o).
+
+	@param text The text to inspect.
 ]=]
 function Regex:FindAll(text: string): { any }
 	local matches = {}
@@ -621,7 +926,9 @@ function Regex:FindAll(text: string): { any }
 
 	while init <= #text do
 		local s, e = self:Find(text, init)
-		if not s then break end
+		if not s then
+			break
+		end
 		if e >= s then
 			table.insert(matches, { s, e })
 		end

@@ -26,21 +26,49 @@ local Lexer = require(script.Parent.Parent.Lexer)
 local Parser = {}
 
 local RESERVED = {
-	["if"] = true, ["then"] = true, ["elif"] = true, ["else"] = true, ["fi"] = true,
-	["for"] = true, ["in"] = true, ["do"] = true, ["done"] = true,
-	["while"] = true, ["until"] = true, ["select"] = true,
-	["case"] = true, ["esac"] = true, ["function"] = true,
-	["time"] = true, ["!"] = true, ["{"] = true, ["}"] = true,
+	["if"] = true,
+	["then"] = true,
+	["elif"] = true,
+	["else"] = true,
+	["fi"] = true,
+	["for"] = true,
+	["in"] = true,
+	["do"] = true,
+	["done"] = true,
+	["while"] = true,
+	["until"] = true,
+	["select"] = true,
+	["case"] = true,
+	["esac"] = true,
+	["function"] = true,
+	["time"] = true,
+	["!"] = true,
+	["{"] = true,
+	["}"] = true,
 }
 
 local REDIRECT_OPS = {
-	[">"] = true, [">>"] = true, [">|"] = true,
-	["<"] = true, ["<>"] = true,
-	["&>"] = true, ["&>>"] = true,
-	["<<<"] = true, ["<<"] = true, ["<<-"] = true,
-	[">&"] = true, ["<&"] = true,
+	[">"] = true,
+	[">>"] = true,
+	[">|"] = true,
+	["<"] = true,
+	["<>"] = true,
+	["&>"] = true,
+	["&>>"] = true,
+	["<<<"] = true,
+	["<<"] = true,
+	["<<-"] = true,
+	[">&"] = true,
+	["<&"] = true,
 }
 
+--[=[
+	Returns the plain text of a word token.
+
+	@param token The token to inspect.
+
+	@return The resulting text, or nil.
+]=]
 local function wordText(token): string?
 	if not token or token.Type ~= "word" then
 		return nil
@@ -52,19 +80,54 @@ local function wordText(token): string?
 	return table.concat(out)
 end
 
+--[=[
+	Checks whether a token is an unquoted reserved word.
+
+	@param token The token to inspect.
+	@param name The name to look up.
+
+	@return True when the condition holds.
+]=]
 local function isReserved(token, name: string): boolean
-	return token ~= nil and token.Type == "word" and token.Quoted ~= true and wordText(token) == name
+	return token ~= nil
+		and token.Type == "word"
+		and token.Quoted ~= true
+		and wordText(token) == name
 end
 
+--[=[
+	Checks whether a token is the given operator.
+
+	@param token The token to inspect.
+	@param value The value to convert.
+
+	@return True when the condition holds.
+]=]
 local function isOp(token, value: string): boolean
 	return token ~= nil and token.Type == "op" and token.Value == value
 end
 
+--[=[
+	Checks whether an operator starts a redirection.
+
+	@param value The value to convert.
+
+	@return True when the condition holds.
+]=]
 local function isRedirectOp(value: string): boolean
-	if REDIRECT_OPS[value] then return true end
+	if REDIRECT_OPS[value] then
+		return true
+	end
 	return string.match(value, "^%d+[<>]") ~= nil or string.match(value, "^%d+>>$") ~= nil
 end
 
+--[=[
+	Splits an explicit file descriptor from a redirection operator.
+
+	@param op The operator to apply.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function parseFd(op: string): (number, string)
 	local fd, rest = string.match(op, "^(%d+)(.*)$")
 	if fd then
@@ -76,25 +139,56 @@ end
 local P = {}
 P.__index = P
 
+--[=[
+	Creates a parser over a token list.
+
+	@param tokens The token list to parse.
+
+	@return The new parser.
+]=]
 function P.new(tokens: { any })
 	return setmetatable({ tokens = tokens, pos = 1 }, P)
 end
 
+--[=[
+	Returns a token ahead of the cursor.
+
+	@param offset The offset from the current position.
+
+	@return The next token, or nil.
+]=]
 function P:peek(offset: number?)
 	local index = self.pos + (offset or 0)
 	return self.tokens[index]
 end
 
+--[=[
+	Consumes and returns the next token.
+
+	@return The consumed token.
+]=]
 function P:advance()
 	local token = self.tokens[self.pos]
 	self.pos += 1
 	return token
 end
 
+--[=[
+	Checks whether the token stream is exhausted.
+
+	@return True when the condition holds.
+]=]
 function P:atEnd(): boolean
 	return self.pos > #self.tokens
 end
 
+--[=[
+	Consumes a word token or raises a syntax error.
+
+	@param what The name to describe.
+
+	@return The expected token.
+]=]
 function P:expectWord(what: string?)
 	local token = self:peek()
 	if not token or token.Type ~= "word" then
@@ -104,36 +198,73 @@ function P:expectWord(what: string?)
 	return token
 end
 
+--[=[
+	Consumes an operator token or raises a syntax error.
+
+	@param value The value to convert.
+
+	@return The expected token.
+]=]
 function P:expectOp(value: string)
 	local token = self:peek()
 	if not isOp(token, value) then
-		local got = if token then (if token.Type == "op" then token.Value else wordText(token)) else "end of line"
+		local got = if token
+			then (if token.Type == "op" then token.Value else wordText(token))
+			else "end of line"
 		error(`syntax error: expected '{value}', got '{got}'`, 0)
 	end
 	self:advance()
 	return token
 end
 
+--[=[
+	Consumes a reserved word or raises a syntax error.
+
+	@param name The name to look up.
+
+	@return The expected token.
+]=]
 function P:expectReserved(name: string)
 	local token = self:peek()
 	if not isReserved(token, name) then
-		local got = if token then (if token.Type == "op" then token.Value else wordText(token)) else "end of line"
+		local got = if token
+			then (if token.Type == "op" then token.Value else wordText(token))
+			else "end of line"
 		error(`syntax error: expected '{name}', got '{got}'`, 0)
 	end
 	self:advance()
 	return token
 end
 
+--[=[
+	Checks whether the cursor reached a list terminator.
+
+	@param stops The words that end the list.
+	@param stopOps The operators that end the list.
+
+	@return True when the condition holds.
+]=]
 function P:atStop(stops, stopOps): boolean
 	local token = self:peek()
-	if not token then return true end
-	if token.Type == "op" and stopOps and stopOps[token.Value] then return true end
-	if token.Type == "word" and stops and stops[wordText(token)] and not token.Quoted then return true end
+	if not token then
+		return true
+	end
+	if token.Type == "op" and stopOps and stopOps[token.Value] then
+		return true
+	end
+	if token.Type == "word" and stops and stops[wordText(token)] and not token.Quoted then
+		return true
+	end
 	return false
 end
 
 --// Redirects //--
 
+--[=[
+	Parses redirections attached to a compound command.
+
+	@return The parsed redirections.
+]=]
 function P:parseAutoRedirects()
 	local redirects = nil
 
@@ -157,8 +288,17 @@ end
 
 --// Simple command //--
 
+--[=[
+	Splits a word into a variable assignment when possible.
+
+	@param token The token to inspect.
+
+	@return The assignment parts, or nil.
+]=]
 local function splitAssignment(token)
-	if not token or token.Type ~= "word" then return nil end
+	if not token or token.Type ~= "word" then
+		return nil
+	end
 
 	local name = {}
 	local value = {}
@@ -201,6 +341,11 @@ local function splitAssignment(token)
 	}
 end
 
+--[=[
+	Parses an array assignment such as `name=(a b)`.
+
+	@return The parsed assignment, or nil.
+]=]
 function P:tryParseArrayAssignment()
 	local token = self:peek()
 	if not token or token.Type ~= "word" or token.Quoted == true then
@@ -244,6 +389,11 @@ function P:tryParseArrayAssignment()
 	}
 end
 
+--[=[
+	Parses a simple command with assignments and redirections.
+
+	@return The parsed syntax node.
+]=]
 function P:parseSimple()
 	local words = {}
 	local assignments = {}
@@ -251,7 +401,9 @@ function P:parseSimple()
 
 	while true do
 		local token = self:peek()
-		if not token then break end
+		if not token then
+			break
+		end
 
 		if token.Type == "op" then
 			if isRedirectOp(token.Value) then
@@ -259,7 +411,10 @@ function P:parseSimple()
 				local op = opToken.Value
 				local target = self:expectWord("redirection target")
 				local fd, kind = parseFd(op)
-				table.insert(redirects, { Fd = fd, Op = kind, Target = target, HereDoc = opToken.HereDoc })
+				table.insert(
+					redirects,
+					{ Fd = fd, Op = kind, Target = target, HereDoc = opToken.HereDoc }
+				)
 			else
 				break
 			end
@@ -298,6 +453,11 @@ end
 
 --// Compound commands //--
 
+--[=[
+	Parses an `if` compound command.
+
+	@return The parsed syntax node.
+]=]
 function P:parseIf()
 	self:expectReserved("if")
 	local branches = {}
@@ -325,6 +485,13 @@ function P:parseIf()
 	return { type = "If", Branches = branches, Else = elseBody }
 end
 
+--[=[
+	Splits a C-style `for` header into its three clauses.
+
+	@param text The text to inspect.
+
+	@return The resulting list.
+]=]
 local function splitArithmeticFor(text: string): { string }
 	local parts = {}
 	local depth = 0
@@ -349,6 +516,11 @@ local function splitArithmeticFor(text: string): { string }
 	return parts
 end
 
+--[=[
+	Parses a `for` or arithmetic `for` loop.
+
+	@return The parsed syntax node.
+]=]
 function P:parseFor()
 	self:expectReserved("for")
 
@@ -383,7 +555,9 @@ function P:parseFor()
 		self:advance()
 		while not self:atEnd() do
 			local token = self:peek()
-			if isOp(token, ";") or isReserved(token, "do") then break end
+			if isOp(token, ";") or isReserved(token, "do") then
+				break
+			end
 			table.insert(words, self:expectWord())
 		end
 	end
@@ -399,6 +573,13 @@ function P:parseFor()
 	return { type = "For", Name = name, Words = words, HasIn = hasIn, Body = body }
 end
 
+--[=[
+	Parses a `while` or `until` loop.
+
+	@param untilLoop Whether this is an `until` loop.
+
+	@return The parsed syntax node.
+]=]
 function P:parseWhile(untilLoop: boolean)
 	self:advance() -- while / until
 	local condition = self:parseList({ ["do"] = true }, nil)
@@ -408,6 +589,11 @@ function P:parseWhile(untilLoop: boolean)
 	return { type = "While", Until = untilLoop, Condition = condition, Body = body }
 end
 
+--[=[
+	Parses a `case` statement.
+
+	@return The parsed syntax node.
+]=]
 function P:parseCase()
 	self:expectReserved("case")
 	local word = self:expectWord("case word")
@@ -432,7 +618,9 @@ function P:parseCase()
 			table.insert(patterns, self:expectWord("case pattern"))
 			if isOp(self:peek(), "|") then
 				self:advance()
-				while isOp(self:peek(), ";") do self:advance() end
+				while isOp(self:peek(), ";") do
+					self:advance()
+				end
 			else
 				break
 			end
@@ -447,7 +635,11 @@ function P:parseCase()
 
 		local terminator = ";;"
 		local token = self:peek()
-		if token and token.Type == "op" and (token.Value == ";;" or token.Value == ";&" or token.Value == ";;&") then
+		if
+			token
+			and token.Type == "op"
+			and (token.Value == ";;" or token.Value == ";&" or token.Value == ";;&")
+		then
 			terminator = self:advance().Value
 		end
 
@@ -458,6 +650,11 @@ function P:parseCase()
 	return { type = "Case", Word = word, Items = items }
 end
 
+--[=[
+	Parses a function definition.
+
+	@return The parsed syntax node.
+]=]
 function P:parseFunction()
 	local nameToken = self:expectWord("function name")
 	local name = wordText(nameToken)
@@ -479,6 +676,11 @@ function P:parseFunction()
 	return { type = "Function", Name = name, Body = body }
 end
 
+--[=[
+	Parses a `[[ ... ]]` conditional.
+
+	@return The parsed syntax node.
+]=]
 function P:parseDoubleBracket()
 	local words = { self:advance() }
 
@@ -502,6 +704,13 @@ function P:parseDoubleBracket()
 	return { type = "Simple", Words = words, Assignments = {}, Redirects = redirects }
 end
 
+--[=[
+	Attaches trailing redirections to a compound command.
+
+	@param node The syntax tree node to evaluate.
+
+	@return The command with its redirections.
+]=]
 function P:withRedirects(node)
 	if not node then
 		return node
@@ -515,9 +724,16 @@ function P:withRedirects(node)
 	return node
 end
 
+--[=[
+	Parses one simple or compound command.
+
+	@return The parsed syntax node.
+]=]
 function P:parseCommand(): any
 	local token = self:peek()
-	if not token then return nil end
+	if not token then
+		return nil
+	end
 
 	if token.Type == "word" and wordText(token) == "[[" then
 		return self:parseDoubleBracket()
@@ -545,7 +761,9 @@ function P:parseCommand(): any
 		self:expectReserved("}")
 		local node = { type = "Group", Body = body }
 		local redirects = self:parseAutoRedirects()
-		if redirects then node.Redirects = redirects end
+		if redirects then
+			node.Redirects = redirects
+		end
 		return node
 	elseif isOp(token, "(") then
 		self:advance()
@@ -553,7 +771,9 @@ function P:parseCommand(): any
 		self:expectOp(")")
 		local node = { type = "Subshell", Body = body }
 		local redirects = self:parseAutoRedirects()
-		if redirects then node.Redirects = redirects end
+		if redirects then
+			node.Redirects = redirects
+		end
 		return node
 	end
 
@@ -562,13 +782,19 @@ function P:parseCommand(): any
 		local second = self:peek(1)
 		local third = self:peek(2)
 		local text = wordText(token) or ""
-		if isOp(second, "(") and isOp(third, ")") and not string.match(text, "^[%a_][%w_]*%+?=$") then
+		if
+			isOp(second, "(")
+			and isOp(third, ")")
+			and not string.match(text, "^[%a_][%w_]*%+?=$")
+		then
 			return self:parseFunction()
 		end
 	end
 
 	local node = self:parseSimple()
-	if not node then return nil end
+	if not node then
+		return nil
+	end
 
 	local redirects = self:parseAutoRedirects()
 	if redirects then
@@ -582,6 +808,11 @@ end
 
 --// Lists //--
 
+--[=[
+	Parses a pipeline with optional negation.
+
+	@return The parsed syntax node.
+]=]
 function P:parsePipeline()
 	local negate = false
 
@@ -613,11 +844,15 @@ function P:parsePipeline()
 		if isOp(token, "|") then
 			table.insert(pipeErr, false)
 			self:advance()
-			while isOp(self:peek(), ";") do self:advance() end
+			while isOp(self:peek(), ";") do
+				self:advance()
+			end
 		elseif isOp(token, "|&") then
 			table.insert(pipeErr, true)
 			self:advance()
-			while isOp(self:peek(), ";") do self:advance() end
+			while isOp(self:peek(), ";") do
+				self:advance()
+			end
 		else
 			break
 		end
@@ -634,6 +869,11 @@ function P:parsePipeline()
 	return node
 end
 
+--[=[
+	Parses `&&` and `||` chains.
+
+	@return The parsed syntax node.
+]=]
 function P:parseAndOr()
 	local node = self:parsePipeline()
 
@@ -641,7 +881,9 @@ function P:parseAndOr()
 		local token = self:peek()
 		if isOp(token, "&&") or isOp(token, "||") then
 			local op = self:advance().Value
-			while isOp(self:peek(), ";") do self:advance() end
+			while isOp(self:peek(), ";") do
+				self:advance()
+			end
 			local right = self:parsePipeline()
 			node = { type = "AndOr", Op = op, Left = node, Right = right }
 		else
@@ -652,13 +894,25 @@ function P:parseAndOr()
 	return node
 end
 
+--[=[
+	Parses a list of commands separated by `;` or `&`.
+
+	@param stops The words that end the list.
+	@param stopOps The operators that end the list.
+
+	@return The parsed syntax node.
+]=]
 function P:parseList(stops, stopOps)
 	local node = nil
 
 	while true do
 		local token = self:peek()
-		if not token then break end
-		if self:atStop(stops, stopOps) then break end
+		if not token then
+			break
+		end
+		if self:atStop(stops, stopOps) then
+			break
+		end
 
 		if isOp(token, ";") or isOp(token, "&") then
 			local op = self:advance().Value
@@ -678,11 +932,15 @@ function P:parseList(stops, stopOps)
 			end
 
 			local right = self:parseAndOr()
-			if not right then break end
+			if not right then
+				break
+			end
 			node = { type = "List", Op = op, Left = node, Right = right }
 		else
 			local command = self:parseAndOr()
-			if not command then break end
+			if not command then
+				break
+			end
 			if not node then
 				node = command
 			else
@@ -696,9 +954,13 @@ end
 
 --[=[
 	Parses a token list into an AST. Returns nil for an empty line.
+
+	@param tokens The token list to parse.
 ]=]
 function Parser.parse(tokens: { any }): any?
-	if #tokens == 0 then return nil end
+	if #tokens == 0 then
+		return nil
+	end
 
 	local parser = P.new(tokens)
 	local ast = parser:parseList(nil, nil)

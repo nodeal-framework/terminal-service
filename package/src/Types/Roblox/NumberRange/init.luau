@@ -1,20 +1,53 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Argument type `NumberRange`: validates, transforms and autocompletes input
+	typed into the terminal.
+]=]
+
 local UserInputService = game:GetService("UserInputService")
 
 return {
+	--[=[
+		Validates raw terminal input for this type.
+
+		@param text The text typed by the player.
+		@param executor The player running the command.
+		@return True when the text is valid, plus an error message otherwise.
+	]=]
 	Validate = function(text: string, executor: Player)
-		local min, max = string.match(text, "^([^,]+),([^,]+)$")
-		if min and max and tonumber(min) and tonumber(max) then
+		local minimum, maximum = string.match(text, "^([^,]+),([^,]+)$")
+		if minimum and maximum and tonumber(minimum) and tonumber(maximum) then
 			return true
 		end
 		local single = string.match(text, "^([^,]+)$")
-		if single and tonumber(single) then return true end
+		if single and tonumber(single) then
+			return true
+		end
 		return false, "Format must be Min, Max or Value"
 	end,
 
+	--[=[
+		Converts validated text into the value the command receives.
+
+		@param text The validated text.
+		@param executor The player running the command.
+		@return The typed value.
+	]=]
 	Transform = function(text: string, executor: Player)
-		local min, max = string.match(text, "^([^,]+),([^,]+)$")
-		if min and max then
-			return NumberRange.new(tonumber(min), tonumber(max))
+		local minimum, maximum = string.match(text, "^([^,]+),([^,]+)$")
+		if minimum and maximum then
+			return NumberRange.new(tonumber(minimum), tonumber(maximum))
 		end
 		local single = string.match(text, "^([^,]+)$")
 		if single then
@@ -23,11 +56,34 @@ return {
 		return NumberRange.new(0)
 	end,
 
+	--[=[
+		Returns completion candidates for partially typed text.
+
+		@param text The text typed so far.
+		@param executor The player running the command.
+		@return The list of suggestions.
+	]=]
 	Autocomplete = function(text: string, executor: Player)
 		return {}
 	end,
 
-	CreateCustomUI = function(currentText: string, terminalService: any, onSelect: (string) -> (), keepFocus: () -> (), liveUpdate: (string) -> ())
+	--[=[
+		Builds the interactive picker shown in the autocomplete dropdown.
+
+		@param currentText The text typed so far.
+		@param terminalService The terminal service.
+		@param onSelect Called with the chosen value.
+		@param keepFocus Keeps the terminal input focused.
+		@param liveUpdate Called while the selection changes.
+		@return The picker frame.
+	]=]
+	CreateCustomUI = function(
+		currentText: string,
+		terminalService: any,
+		onSelect: (string) -> (),
+		keepFocus: () -> (),
+		liveUpdate: (string) -> ()
+	)
 		local Frame = Instance.new("Frame")
 		Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 		Frame.BorderSizePixel = 0
@@ -51,9 +107,9 @@ return {
 		Title.Parent = Frame
 
 		local cMin, cMax = 0, 10
-		local min, max = string.match(currentText, "^([^,]+),([^,]+)$")
-		if min and max and tonumber(min) and tonumber(max) then
-			cMin, cMax = tonumber(min), tonumber(max)
+		local minimum, maximum = string.match(currentText, "^([^,]+),([^,]+)$")
+		if minimum and maximum and tonumber(minimum) and tonumber(maximum) then
+			cMin, cMax = tonumber(minimum), tonumber(maximum)
 		else
 			local single = string.match(currentText, "^([^,]+)$")
 			if single and tonumber(single) then
@@ -94,14 +150,26 @@ return {
 		StrokeMax.Color = Color3.fromRGB(100, 100, 100)
 		StrokeMax.Parent = KnobMax
 
-		local function getAlpha(val)
-			return math.clamp(val / 100, 0, 1) -- default range 0-100 for ui
+		--[=[
+			Maps a number-range value to a 0..1 slider position.
+
+			@param value The value to inspect.
+
+			@return The slider position from 0 to 1.
+		]=]
+		local function getAlpha(value)
+			return math.clamp(value / 100, 0, 1) -- default range 0-100 for ui
 		end
 
+		--[=[
+			Refreshes the slider knobs from the current range.
+		]=]
 		local function updateVisuals()
 			local aMin = getAlpha(cMin)
 			local aMax = getAlpha(cMax)
-			if aMin > aMax then aMin, aMax = aMax, aMin end
+			if aMin > aMax then
+				aMin, aMax = aMax, aMin
+			end
 
 			KnobMin.Position = UDim2.new(aMin, 0, 0.5, 0)
 			KnobMax.Position = UDim2.new(aMax, 0, 0.5, 0)
@@ -114,56 +182,93 @@ return {
 		local draggingKnob = nil
 		local connections = {}
 
+		--[=[
+			Updates the range from a pointer input.
+
+			@param input The input to process.
+		]=]
 		local function onInput(input)
-			local alpha = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-			local val = math.floor(alpha * 1000) / 10
+			local alpha = math.clamp(
+				(input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X,
+				0,
+				1
+			)
+			local value = math.floor(alpha * 1000) / 10
 
 			if draggingKnob == "min" then
-				cMin = val
-				if cMin > cMax then cMin = cMax end
+				cMin = value
+				if cMin > cMax then
+					cMin = cMax
+				end
 			elseif draggingKnob == "max" then
-				cMax = val
-				if cMax < cMin then cMax = cMin end
+				cMax = value
+				if cMax < cMin then
+					cMax = cMin
+				end
 			end
 			updateVisuals()
 			liveUpdate(string.format("%.1f,%.1f", cMin, cMax))
 			keepFocus()
 		end
 
-		table.insert(connections, KnobMin.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				draggingKnob = "min"
-			end
-		end))
-		table.insert(connections, KnobMax.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				draggingKnob = "max"
-			end
-		end))
-
-		table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				if draggingKnob then
-					onInput(input)
+		table.insert(
+			connections,
+			KnobMin.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					draggingKnob = "min"
 				end
-			end
-		end))
-
-		table.insert(connections, UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				if draggingKnob then
-					draggingKnob = nil
-					keepFocus()
+			end)
+		)
+		table.insert(
+			connections,
+			KnobMax.InputBegan:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					draggingKnob = "max"
 				end
-			end
-		end))
+			end)
+		)
+
+		table.insert(
+			connections,
+			UserInputService.InputChanged:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseMovement
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if draggingKnob then
+						onInput(input)
+					end
+				end
+			end)
+		)
+
+		table.insert(
+			connections,
+			UserInputService.InputEnded:Connect(function(input)
+				if
+					input.UserInputType == Enum.UserInputType.MouseButton1
+					or input.UserInputType == Enum.UserInputType.Touch
+				then
+					if draggingKnob then
+						draggingKnob = nil
+						keepFocus()
+					end
+				end
+			end)
+		)
 
 		Frame.Destroying:Connect(function()
-			for _, conn in ipairs(connections) do
-				conn:Disconnect()
+			for _, connection in ipairs(connections) do
+				connection:Disconnect()
 			end
 		end)
 
 		return Frame
-	end
+	end,
 }

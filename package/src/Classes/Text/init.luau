@@ -18,6 +18,8 @@ local Text = {}
 
 --[=[
 	Splits text into lines. A trailing newline does not create an extra empty line.
+
+	@param input The input to process.
 ]=]
 function Text.lines(input: string): { string }
 	if input == "" then
@@ -26,9 +28,9 @@ function Text.lines(input: string): { string }
 
 	local out = {}
 	local start = 1
-	local len = #input
+	local length = #input
 
-	while start <= len do
+	while start <= length do
 		local index = string.find(input, "\n", start, true)
 		if not index then
 			table.insert(out, string.sub(input, start))
@@ -41,22 +43,37 @@ function Text.lines(input: string): { string }
 	return out
 end
 
+--[=[
+	Joins lines with a newline.
+
+	@param lines The lines to process.
+
+	@return The resulting text.
+]=]
 function Text.join(lines: { string }): string
 	return table.concat(lines, "\n")
 end
 
 --[=[
 	Parses an integer, accepting a leading + or -.
+
+	@param value The value to inspect.
 ]=]
 function Text.number(value: string?): number?
-	if value == nil then return nil end
+	if value == nil then
+		return nil
+	end
 	local text = string.match(value, "^%s*([%+%-]?%d+)%s*$")
-	if not text then return nil end
+	if not text then
+		return nil
+	end
 	return tonumber(text)
 end
 
 --[=[
 	Expands a cut-style selection list: "1", "1,3", "2-5", "1-3,7-".
+
+	@param value The value to inspect.
 ]=]
 function Text.selectRange(value: string): any
 	local ranges = {}
@@ -82,6 +99,14 @@ function Text.selectRange(value: string): any
 	return ranges, nil
 end
 
+--[=[
+	Checks whether an index falls inside any range.
+
+	@param index The position to start at.
+	@param ranges The ranges to test.
+
+	@return True when the condition holds.
+]=]
 function Text.inRanges(index: number, ranges: { any }): boolean
 	for _, range in ranges do
 		if index >= range[1] and index <= range[2] then
@@ -93,6 +118,9 @@ end
 
 --[=[
 	Right-aligns a count the way wc does.
+
+	@param value The value to inspect.
+	@param width The target width.
 ]=]
 function Text.padCount(value: number, width: number): string
 	local text = tostring(value)

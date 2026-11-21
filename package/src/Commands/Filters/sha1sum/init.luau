@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `sha1sum` command: Compute the SHA-1 checksum of stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Hash = require(script.Parent.Parent.Parent.Parent.Classes.Hash)
 
@@ -18,15 +22,21 @@ return {
 	Permission = "Any",
 	Description = "Compute the SHA-1 checksum of stdin",
 	Args = {},
+	--[=[
+		Compute the SHA-1 checksum of stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "bct", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "bct", {
 			binary = "b",
 			text = "t",
 			check = "c",
 		})
 
-		if err then
-			context:Error(`sha1sum: {err}`, 2)
+		if errorValue then
+			context:Error(`sha1sum: {errorValue}`, 2)
 			return ""
 		end
 

@@ -24,11 +24,24 @@ local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Regex = require(script.Parent.Parent.Parent.Parent.Classes.Regex)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
+--[=[
+	Splits an awk program into tokens.
+
+	@param program The awk program to run.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function tokenize(program: string): (any?, string?)
 	local tokens = {}
 	local i = 1
 	local expectOperand = true
 
+	--[=[
+		Appends one token to the token list.
+
+		@param kind The kind to classify.
+		@param value The value to convert.
+	]=]
 	local function push(kind, value)
 		table.insert(tokens, { Kind = kind, Value = value })
 	end
@@ -37,22 +50,25 @@ local function tokenize(program: string): (any?, string?)
 		local c = string.sub(program, i, i)
 
 		if string.match(c, "%s") then
-			if c == "\n" then push("op", ";") end
+			if c == "\n" then
+				push("op", ";")
+			end
 			i += 1
 		elseif c == "#" then
 			local newline = string.find(program, "\n", i, true)
 			i = if newline then newline + 1 else #program + 1
-		elseif c == "\"" then
+		elseif c == '"' then
 			local out = {}
 			i += 1
 			while i <= #program do
 				local d = string.sub(program, i, i)
 				if d == "\\" then
 					local n = string.sub(program, i + 1, i + 1)
-					local map = { n = "\n", t = "\t", r = "\r", ["\\"] = "\\", ["\""] = "\"", ["/"] = "/" }
+					local map =
+						{ n = "\n", t = "\t", r = "\r", ["\\"] = "\\", ['"'] = '"', ["/"] = "/" }
 					table.insert(out, map[n] or n)
 					i += 2
-				elseif d == "\"" then
+				elseif d == '"' then
 					i += 1
 					break
 				else
@@ -80,7 +96,10 @@ local function tokenize(program: string): (any?, string?)
 			end
 			push("regex", table.concat(out))
 			expectOperand = false
-		elseif string.match(c, "%d") or (c == "." and string.match(string.sub(program, i + 1, i + 1), "%d")) then
+		elseif
+			string.match(c, "%d")
+			or (c == "." and string.match(string.sub(program, i + 1, i + 1), "%d"))
+		then
 			local number = string.match(string.sub(program, i), "^%d*%.?%d+")
 			push("num", tonumber(number))
 			i += #number
@@ -89,14 +108,40 @@ local function tokenize(program: string): (any?, string?)
 			local name = string.match(string.sub(program, i), "^[%a_][%w_]*")
 			push("id", name)
 			i += #name
-			expectOperand = not (name == "BEGIN" or name == "END" or name == "print" or name == "printf"
-				or name == "if" or name == "else" or name == "while" or name == "for" or name == "do"
-				or name == "break" or name == "continue" or name == "next" or name == "exit")
+			expectOperand = not (
+				name == "BEGIN"
+				or name == "END"
+				or name == "print"
+				or name == "printf"
+				or name == "if"
+				or name == "else"
+				or name == "while"
+				or name == "for"
+				or name == "do"
+				or name == "break"
+				or name == "continue"
+				or name == "next"
+				or name == "exit"
+			)
 		else
 			local two = string.sub(program, i, i + 1)
-			if two == "==" or two == "!=" or two == "<=" or two == ">=" or two == "&&"
-				or two == "||" or two == "!~" or two == "+=" or two == "-=" or two == "*="
-				or two == "/=" or two == "%=" or two == "^=" or two == "++" or two == "--" then
+			if
+				two == "=="
+				or two == "!="
+				or two == "<="
+				or two == ">="
+				or two == "&&"
+				or two == "||"
+				or two == "!~"
+				or two == "+="
+				or two == "-="
+				or two == "*="
+				or two == "/="
+				or two == "%="
+				or two == "^="
+				or two == "++"
+				or two == "--"
+			then
 				push("op", two)
 				i += 2
 				expectOperand = true
@@ -115,20 +160,44 @@ end
 local P = {}
 P.__index = P
 
+--[=[
+	Creates an awk parser over a token list.
+
+	@param tokens The token list to parse.
+
+	@return The new parser.
+]=]
 function P.new(tokens)
 	return setmetatable({ Tokens = tokens, Pos = 1 }, P)
 end
 
+--[=[
+	Returns the current awk token.
+
+	@return The next token, or nil.
+]=]
 function P:peek()
 	return self.Tokens[self.Pos]
 end
 
+--[=[
+	Consumes and returns the current awk token.
+
+	@return The consumed token.
+]=]
 function P:advance()
 	local token = self.Tokens[self.Pos]
 	self.Pos += 1
 	return token
 end
 
+--[=[
+	Consumes the current token when it has the given value.
+
+	@param value The value to convert.
+
+	@return True when the condition holds.
+]=]
 function P:matchValue(value: string): boolean
 	local token = self:peek()
 	if token and token.Value == value then
@@ -138,6 +207,11 @@ function P:matchValue(value: string): boolean
 	return false
 end
 
+--[=[
+	Consumes a token value or raises an awk syntax error.
+
+	@param value The value to convert.
+]=]
 function P:expect(value: string)
 	if not self:matchValue(value) then
 		local token = self:peek()
@@ -146,31 +220,87 @@ function P:expect(value: string)
 end
 
 local BINARY = {
-	["="] = 1, ["+="] = 1, ["-="] = 1, ["*="] = 1, ["/="] = 1, ["%="] = 1, ["^="] = 1,
+	["="] = 1,
+	["+="] = 1,
+	["-="] = 1,
+	["*="] = 1,
+	["/="] = 1,
+	["%="] = 1,
+	["^="] = 1,
 	["?"] = 2,
 	["||"] = 3,
 	["&&"] = 4,
-	["=="] = 6, ["!="] = 6, ["<"] = 6, ["<="] = 6, [">"] = 6, [">="] = 6, ["~"] = 6, ["!~"] = 6,
-	["+"] = 8, ["-"] = 8,
-	["*"] = 9, ["/"] = 9, ["%"] = 9,
+	["=="] = 6,
+	["!="] = 6,
+	["<"] = 6,
+	["<="] = 6,
+	[">"] = 6,
+	[">="] = 6,
+	["~"] = 6,
+	["!~"] = 6,
+	["+"] = 8,
+	["-"] = 8,
+	["*"] = 9,
+	["/"] = 9,
+	["%"] = 9,
 	["^"] = 10,
 }
 
-local RIGHT = { ["="] = true, ["+="] = true, ["-="] = true, ["*="] = true, ["/="] = true, ["%="] = true, ["^="] = true, ["^"] = true, ["?"] = true }
+local RIGHT = {
+	["="] = true,
+	["+="] = true,
+	["-="] = true,
+	["*="] = true,
+	["/="] = true,
+	["%="] = true,
+	["^="] = true,
+	["^"] = true,
+	["?"] = true,
+}
 
+--[=[
+	Checks whether a token can begin an expression.
+
+	@param token The token to inspect.
+
+	@return True when the condition holds.
+]=]
 local function startsExpression(token): boolean
-	if not token then return false end
-	if token.Kind == "num" or token.Kind == "str" or token.Kind == "regex" or token.Kind == "id" then return true end
-	return token.Value == "(" or token.Value == "$" or token.Value == "!" or token.Value == "-" or token.Value == "+"
-		or token.Value == "++" or token.Value == "--"
+	if not token then
+		return false
+	end
+	if
+		token.Kind == "num"
+		or token.Kind == "str"
+		or token.Kind == "regex"
+		or token.Kind == "id"
+	then
+		return true
+	end
+	return token.Value == "("
+		or token.Value == "$"
+		or token.Value == "!"
+		or token.Value == "-"
+		or token.Value == "+"
+		or token.Value == "++"
+		or token.Value == "--"
 end
 
+--[=[
+	Parses an expression at or above the given precedence.
+
+	@param minPrec The minimum precedence to accept.
+
+	@return The parsed expression node.
+]=]
 function P:parseExpression(minPrec: number)
 	local left = self:parseUnary()
 
 	while true do
 		local token = self:peek()
-		if not token or token.Kind == "eof" then break end
+		if not token or token.Kind == "eof" then
+			break
+		end
 
 		local op = token.Value
 		local prec = BINARY[op]
@@ -183,7 +313,15 @@ function P:parseExpression(minPrec: number)
 				self:expect(":")
 				local no = self:parseExpression(prec)
 				left = { Kind = "ternary", Cond = left, Yes = yes, No = no }
-			elseif op == "=" or op == "+=" or op == "-=" or op == "*=" or op == "/=" or op == "%=" or op == "^=" then
+			elseif
+				op == "="
+				or op == "+="
+				or op == "-="
+				or op == "*="
+				or op == "/="
+				or op == "%="
+				or op == "^="
+			then
 				local right = self:parseExpression(prec)
 				left = { Kind = "assign", Op = op, Target = left, Value = right }
 			else
@@ -201,9 +339,16 @@ function P:parseExpression(minPrec: number)
 	return left
 end
 
+--[=[
+	Parses a prefix unary expression.
+
+	@return The parsed expression node.
+]=]
 function P:parseUnary()
 	local token = self:peek()
-	if not token then error("awk: unexpected end of program", 0) end
+	if not token then
+		error("awk: unexpected end of program", 0)
+	end
 
 	if token.Value == "!" or token.Value == "-" or token.Value == "+" then
 		self:advance()
@@ -224,9 +369,16 @@ function P:parseUnary()
 	return node
 end
 
+--[=[
+	Parses a literal, field, variable, call or group.
+
+	@return The parsed expression node.
+]=]
 function P:parsePrimary()
 	local token = self:advance()
-	if not token then error("awk: unexpected end of program", 0) end
+	if not token then
+		error("awk: unexpected end of program", 0)
+	end
 
 	if token.Kind == "num" or token.Kind == "str" then
 		return { Kind = token.Kind, Value = token.Value }
@@ -241,16 +393,18 @@ function P:parsePrimary()
 		return { Kind = "field", Index = index }
 	elseif token.Kind == "id" then
 		if self:matchValue("(") then
-			local args = {}
+			local arguments = {}
 			if not self:matchValue(")") then
 				while true do
-					table.insert(args, self:parseExpression(1))
-					if self:matchValue(",") then continue end
+					table.insert(arguments, self:parseExpression(1))
+					if self:matchValue(",") then
+						continue
+					end
 					self:expect(")")
 					break
 				end
 			end
-			return { Kind = "call", Name = token.Value, Args = args }
+			return { Kind = "call", Name = token.Value, Args = arguments }
 		end
 		if self:matchValue("[") then
 			local index = self:parseExpression(1)
@@ -263,12 +417,19 @@ function P:parsePrimary()
 	error(`awk: unexpected token '{token.Value}'`, 0)
 end
 
+--[=[
+	Parses a brace-delimited statement block.
+
+	@return The parsed statement block.
+]=]
 function P:parseBlock()
 	self:expect("{")
 	local body = {}
 	while true do
 		local token = self:peek()
-		if not token or token.Kind == "eof" then break end
+		if not token or token.Kind == "eof" then
+			break
+		end
 		if token.Value == "}" then
 			self:advance()
 			break
@@ -282,23 +443,39 @@ function P:parseBlock()
 	return { Kind = "block", Body = body }
 end
 
+--[=[
+	Parses one awk statement.
+
+	@return The parsed statement.
+]=]
 function P:parseStatement()
 	local token = self:peek()
-	if not token then error("awk: unexpected end of program", 0) end
+	if not token then
+		error("awk: unexpected end of program", 0)
+	end
 
 	if token.Value == "{" then
 		return self:parseBlock()
 	elseif token.Value == "print" or token.Value == "printf" then
 		self:advance()
-		local args = {}
+		local arguments = {}
 		while true do
 			local nextToken = self:peek()
-			if not nextToken or nextToken.Kind == "eof" or nextToken.Value == ";" or nextToken.Value == "}" then break end
-			table.insert(args, self:parseExpression(1))
-			if not self:matchValue(",") then break end
+			if
+				not nextToken
+				or nextToken.Kind == "eof"
+				or nextToken.Value == ";"
+				or nextToken.Value == "}"
+			then
+				break
+			end
+			table.insert(arguments, self:parseExpression(1))
+			if not self:matchValue(",") then
+				break
+			end
 		end
 		self:matchValue(";")
-		return { Kind = token.Value, Args = args }
+		return { Kind = token.Value, Args = arguments }
 	elseif token.Value == "if" then
 		self:advance()
 		self:expect("(")
@@ -342,7 +519,13 @@ function P:parseStatement()
 			step = self:parseExpression(1)
 		end
 		self:expect(")")
-		return { Kind = "for", Init = init, Cond = condition, Step = step, Body = self:parseStatement() }
+		return {
+			Kind = "for",
+			Init = init,
+			Cond = condition,
+			Step = step,
+			Body = self:parseStatement(),
+		}
 	elseif token.Value == "break" or token.Value == "continue" or token.Value == "next" then
 		self:advance()
 		self:matchValue(";")
@@ -362,11 +545,18 @@ function P:parseStatement()
 	return { Kind = "expr", Expr = expression }
 end
 
+--[=[
+	Parses the complete awk program.
+
+	@return The parsed program.
+]=]
 function P:parseProgram()
 	local rules = {}
 	while true do
 		local token = self:peek()
-		if not token or token.Kind == "eof" then break end
+		if not token or token.Kind == "eof" then
+			break
+		end
 		if token.Value == ";" then
 			self:advance()
 			continue
@@ -398,29 +588,75 @@ end
 
 --// Runtime //--
 
+--[=[
+	Applies awk truthiness rules.
+
+	@param value The value to convert.
+
+	@return True when the condition holds.
+]=]
 local function truthy(value): boolean
-	if type(value) == "number" then return value ~= 0 end
-	if type(value) == "table" and value.__regex then return false end
+	if type(value) == "number" then
+		return value ~= 0
+	end
+	if type(value) == "table" and value.__regex then
+		return false
+	end
 	return value ~= nil and tostring(value) ~= ""
 end
 
+--[=[
+	Converts an awk value to a number.
+
+	@param value The value to convert.
+
+	@return The resulting number.
+]=]
 local function toNumber(value): number
-	if type(value) == "number" then return value end
+	if type(value) == "number" then
+		return value
+	end
 	local number = tonumber(tostring(value))
 	return number or 0
 end
 
+--[=[
+	Converts an awk value to text.
+
+	@param value The value to convert.
+
+	@return The resulting text.
+]=]
 local function toText(value): string
-	if type(value) == "table" and value.__regex then return value.__regex end
+	if type(value) == "table" and value.__regex then
+		return value.__regex
+	end
 	return tostring(value)
 end
 
+--[=[
+	Checks whether a value looks numeric.
+
+	@param value The value to convert.
+
+	@return True when the condition holds.
+]=]
 local function isNumeric(value): boolean
-	if type(value) == "number" then return true end
+	if type(value) == "number" then
+		return true
+	end
 	return tonumber(tostring(value)) ~= nil
 end
 
-local function printfFormat(format: string, args: { any }): string
+--[=[
+	Formats awk `printf` arguments.
+
+	@param format The format string.
+	@param arguments The command arguments.
+
+	@return The resulting text.
+]=]
+local function printfFormat(format: string, arguments: { any }): string
 	local out = {}
 	local index = 1
 	local i = 1
@@ -442,7 +678,7 @@ local function printfFormat(format: string, args: { any }): string
 			local conversion = string.sub(format, j, j)
 			spec ..= conversion
 			j += 1
-			local value = args[index]
+			local value = arguments[index]
 			index += 1
 
 			if conversion == "s" then
@@ -475,6 +711,14 @@ end
 local Interpreter = {}
 Interpreter.__index = Interpreter
 
+--[=[
+	Creates an awk interpreter for a program.
+
+	@param program The awk program to run.
+	@param options The parsed options.
+
+	@return The new interpreter.
+]=]
 function Interpreter.new(program, options)
 	local self = setmetatable({}, Interpreter)
 	self.Program = program
@@ -503,6 +747,9 @@ function Interpreter.new(program, options)
 	return self
 end
 
+--[=[
+	Counts an evaluation step and enforces the limit.
+]=]
 function Interpreter:Step()
 	self.Steps += 1
 	if self.Steps > self.MaxSteps then
@@ -510,6 +757,13 @@ function Interpreter:Step()
 	end
 end
 
+--[=[
+	Returns a cached compiled regular expression.
+
+	@param pattern The pattern to match.
+
+	@return The compiled regular expression.
+]=]
 function Interpreter:Regex(pattern: string)
 	local cached = self.RegexCache[pattern]
 	if not cached then
@@ -519,12 +773,17 @@ function Interpreter:Regex(pattern: string)
 	return cached
 end
 
+--[=[
+	Splits the current record into fields.
+]=]
 function Interpreter:SplitRecord()
 	local record = self.Record
 	local fields = {}
 
 	if self.FS == " " then
-		for field in string.gmatch(record, "%S+") do table.insert(fields, field) end
+		for field in string.gmatch(record, "%S+") do
+			table.insert(fields, field)
+		end
 	elseif #self.FS == 1 then
 		fields = string.split(record, self.FS)
 	else
@@ -545,21 +804,44 @@ function Interpreter:SplitRecord()
 	self.Vars.NF = #fields
 end
 
+--[=[
+	Replaces the current record and re-splits it.
+
+	@param record The current input record.
+]=]
 function Interpreter:SetRecord(record: string)
 	self.Record = record
 	self:SplitRecord()
 end
 
+--[=[
+	Rebuilds the record from its fields and OFS.
+]=]
 function Interpreter:RebuildRecord()
 	self.Record = table.concat(self.Fields, self.OFS)
 end
 
+--[=[
+	Reads a field by index.
+
+	@param index The position to start at.
+
+	@return The resulting text.
+]=]
 function Interpreter:GetField(index: number): string
 	index = math.floor(index)
-	if index == 0 then return self.Record end
+	if index == 0 then
+		return self.Record
+	end
 	return self.Fields[index] or ""
 end
 
+--[=[
+	Writes a field and rebuilds the record.
+
+	@param index The position to start at.
+	@param value The value to convert.
+]=]
 function Interpreter:SetField(index: number, value: any)
 	index = math.floor(index)
 	if index == 0 then
@@ -576,22 +858,57 @@ function Interpreter:SetField(index: number, value: any)
 	self:RebuildRecord()
 end
 
+--[=[
+	Reads an awk variable or built-in.
+
+	@param name The name to look up.
+
+	@return The variable value.
+]=]
 function Interpreter:GetVar(name: string): any
-	if name == "NF" then return #self.Fields end
-	if name == "NR" then return self.NR end
-	if name == "FNR" then return self.FNR end
-	if name == "FS" then return self.FS end
-	if name == "OFS" then return self.OFS end
-	if name == "ORS" then return self.ORS end
-	if name == "RS" then return self.RS end
-	if name == "NR" then return self.NR end
-	if name == "RSTART" then return self.Vars.RSTART or 0 end
-	if name == "RLENGTH" then return self.Vars.RLENGTH or 0 end
+	if name == "NF" then
+		return #self.Fields
+	end
+	if name == "NR" then
+		return self.NR
+	end
+	if name == "FNR" then
+		return self.FNR
+	end
+	if name == "FS" then
+		return self.FS
+	end
+	if name == "OFS" then
+		return self.OFS
+	end
+	if name == "ORS" then
+		return self.ORS
+	end
+	if name == "RS" then
+		return self.RS
+	end
+	if name == "NR" then
+		return self.NR
+	end
+	if name == "RSTART" then
+		return self.Vars.RSTART or 0
+	end
+	if name == "RLENGTH" then
+		return self.Vars.RLENGTH or 0
+	end
 	local value = self.Vars[name]
-	if value == nil then return "" end
+	if value == nil then
+		return ""
+	end
 	return value
 end
 
+--[=[
+	Writes an awk variable or built-in.
+
+	@param name The name to look up.
+	@param value The value to convert.
+]=]
 function Interpreter:SetVar(name: string, value: any)
 	if name == "FS" then
 		self.FS = toText(value)
@@ -604,8 +921,12 @@ function Interpreter:SetVar(name: string, value: any)
 		self.RS = toText(value)
 	elseif name == "NF" then
 		local count = math.floor(toNumber(value))
-		for i = #self.Fields + 1, count do self.Fields[i] = "" end
-		for i = #self.Fields, count + 1, -1 do self.Fields[i] = nil end
+		for i = #self.Fields + 1, count do
+			self.Fields[i] = ""
+		end
+		for i = #self.Fields, count + 1, -1 do
+			self.Fields[i] = nil
+		end
 		self.Vars.NF = count
 		self:RebuildRecord()
 	elseif name ~= "NR" and name ~= "FNR" then
@@ -613,11 +934,22 @@ function Interpreter:SetVar(name: string, value: any)
 	end
 end
 
+--[=[
+	Returns a setter for an assignable expression.
+
+	@param node The syntax tree node to evaluate.
+
+	@return A setter for the expression, or nil.
+]=]
 local function lvalue(node)
 	if node.Kind == "var" then
-		return function(state, value) state:SetVar(node.Name, value) end
+		return function(state, value)
+			state:SetVar(node.Name, value)
+		end
 	elseif node.Kind == "field" then
-		return function(state, value) state:SetField(toNumber(state:Eval(node.Index)), value) end
+		return function(state, value)
+			state:SetField(toNumber(state:Eval(node.Index)), value)
+		end
 	elseif node.Kind == "array" then
 		return function(state, value)
 			local array = state.Arrays[node.Name] or {}
@@ -628,6 +960,13 @@ local function lvalue(node)
 	return nil
 end
 
+--[=[
+	Evaluates a rule pattern against the record.
+
+	@param node The syntax tree node to evaluate.
+
+	@return True when the rule matches.
+]=]
 function Interpreter:PatternValue(node)
 	local value = self:Eval(node)
 	if type(value) == "table" and value.__regex then
@@ -636,8 +975,17 @@ function Interpreter:PatternValue(node)
 	return truthy(value)
 end
 
+--[=[
+	Evaluates an awk expression.
+
+	@param node The syntax tree node to evaluate.
+
+	@return The evaluated value.
+]=]
 function Interpreter:Eval(node): any
-	if not node then return "" end
+	if not node then
+		return ""
+	end
 	self:Step()
 
 	local kind = node.Kind
@@ -657,15 +1005,23 @@ function Interpreter:Eval(node): any
 		return toText(self:Eval(node.Left)) .. toText(self:Eval(node.Right))
 	elseif kind == "unary" then
 		local value = self:Eval(node.Value)
-		if node.Op == "!" then return if truthy(value) then 0 else 1 end
-		if node.Op == "-" then return -toNumber(value) end
-		if node.Op == "+" then return toNumber(value) end
+		if node.Op == "!" then
+			return if truthy(value) then 0 else 1
+		end
+		if node.Op == "-" then
+			return -toNumber(value)
+		end
+		if node.Op == "+" then
+			return toNumber(value)
+		end
 		return value
 	elseif kind == "ternary" then
 		return if truthy(self:Eval(node.Cond)) then self:Eval(node.Yes) else self:Eval(node.No)
 	elseif kind == "incdec" then
 		local setter = lvalue(node.Target)
-		if not setter then error("awk: ++/-- needs an lvalue", 0) end
+		if not setter then
+			error("awk: ++/-- needs an lvalue", 0)
+		end
 		local current = node.Target.Kind == "var" and self:GetVar(node.Target.Name)
 			or node.Target.Kind == "field" and self:GetField(toNumber(self:Eval(node.Target.Index)))
 			or 0
@@ -675,27 +1031,40 @@ function Interpreter:Eval(node): any
 		return if node.Prefix then new else old
 	elseif kind == "assign" then
 		local setter = lvalue(node.Target)
-		if not setter then error("awk: assignment needs an lvalue", 0) end
+		if not setter then
+			error("awk: assignment needs an lvalue", 0)
+		end
 		local value = self:Eval(node.Value)
 		if node.Op ~= "=" then
 			local current = self:Eval(node.Target)
 			local op = string.sub(node.Op, 1, 1)
-			if op == "+" then value = toNumber(current) + toNumber(value)
-			elseif op == "-" then value = toNumber(current) - toNumber(value)
-			elseif op == "*" then value = toNumber(current) * toNumber(value)
-			elseif op == "/" then value = toNumber(current) / toNumber(value)
-			elseif op == "%" then value = toNumber(current) % toNumber(value)
-			elseif op == "^" then value = toNumber(current) ^ toNumber(value) end
+			if op == "+" then
+				value = toNumber(current) + toNumber(value)
+			elseif op == "-" then
+				value = toNumber(current) - toNumber(value)
+			elseif op == "*" then
+				value = toNumber(current) * toNumber(value)
+			elseif op == "/" then
+				value = toNumber(current) / toNumber(value)
+			elseif op == "%" then
+				value = toNumber(current) % toNumber(value)
+			elseif op == "^" then
+				value = toNumber(current) ^ toNumber(value)
+			end
 		end
 		setter(self, value)
 		return value
 	elseif kind == "binary" then
 		local op = node.Op
 		if op == "&&" then
-			if not truthy(self:Eval(node.Left)) then return 0 end
+			if not truthy(self:Eval(node.Left)) then
+				return 0
+			end
 			return if truthy(self:Eval(node.Right)) then 1 else 0
 		elseif op == "||" then
-			if truthy(self:Eval(node.Left)) then return 1 end
+			if truthy(self:Eval(node.Left)) then
+				return 1
+			end
 			return if truthy(self:Eval(node.Right)) then 1 else 0
 		end
 
@@ -703,36 +1072,60 @@ function Interpreter:Eval(node): any
 		local right = self:Eval(node.Right)
 
 		if op == "~" or op == "!~" then
-			local pattern = if type(right) == "table" and right.__regex then right.__regex else toText(right)
+			local pattern = if type(right) == "table" and right.__regex
+				then right.__regex
+				else toText(right)
 			local matched = self:Regex(pattern):Test(toText(left))
-			if op == "!~" then matched = not matched end
+			if op == "!~" then
+				matched = not matched
+			end
 			return if matched then 1 else 0
 		elseif op == "==" or op == "!=" or op == "<" or op == "<=" or op == ">" or op == ">=" then
 			local result
 			if isNumeric(left) and isNumeric(right) then
 				local a, b = toNumber(left), toNumber(right)
-				if op == "==" then result = a == b
-				elseif op == "!=" then result = a ~= b
-				elseif op == "<" then result = a < b
-				elseif op == "<=" then result = a <= b
-				elseif op == ">" then result = a > b
-				else result = a >= b end
+				if op == "==" then
+					result = a == b
+				elseif op == "!=" then
+					result = a ~= b
+				elseif op == "<" then
+					result = a < b
+				elseif op == "<=" then
+					result = a <= b
+				elseif op == ">" then
+					result = a > b
+				else
+					result = a >= b
+				end
 			else
 				local a, b = toText(left), toText(right)
-				if op == "==" then result = a == b
-				elseif op == "!=" then result = a ~= b
-				elseif op == "<" then result = a < b
-				elseif op == "<=" then result = a <= b
-				elseif op == ">" then result = a > b
-				else result = a >= b end
+				if op == "==" then
+					result = a == b
+				elseif op == "!=" then
+					result = a ~= b
+				elseif op == "<" then
+					result = a < b
+				elseif op == "<=" then
+					result = a <= b
+				elseif op == ">" then
+					result = a > b
+				else
+					result = a >= b
+				end
 			end
 			return if result then 1 else 0
-		elseif op == "+" then return toNumber(left) + toNumber(right)
-		elseif op == "-" then return toNumber(left) - toNumber(right)
-		elseif op == "*" then return toNumber(left) * toNumber(right)
-		elseif op == "/" then return toNumber(left) / toNumber(right)
-		elseif op == "%" then return toNumber(left) % toNumber(right)
-		elseif op == "^" then return toNumber(left) ^ toNumber(right)
+		elseif op == "+" then
+			return toNumber(left) + toNumber(right)
+		elseif op == "-" then
+			return toNumber(left) - toNumber(right)
+		elseif op == "*" then
+			return toNumber(left) * toNumber(right)
+		elseif op == "/" then
+			return toNumber(left) / toNumber(right)
+		elseif op == "%" then
+			return toNumber(left) % toNumber(right)
+		elseif op == "^" then
+			return toNumber(left) ^ toNumber(right)
 		end
 	elseif kind == "call" then
 		return self:Call(node.Name, node.Args)
@@ -741,14 +1134,24 @@ function Interpreter:Eval(node): any
 	return ""
 end
 
-function Interpreter:Call(name: string, args: { any }): any
+--[=[
+	Calls an awk built-in function.
+
+	@param name The name to look up.
+	@param arguments The command arguments.
+
+	@return The function result.
+]=]
+function Interpreter:Call(name: string, arguments: { any }): any
 	local values = {}
-	for _, arg in args do
-		table.insert(values, self:Eval(arg))
+	for _, argument in arguments do
+		table.insert(values, self:Eval(argument))
 	end
 
 	if name == "length" then
-		if #values == 0 then return #self.Record end
+		if #values == 0 then
+			return #self.Record
+		end
 		return #toText(values[1])
 	elseif name == "substr" then
 		local text = toText(values[1])
@@ -785,7 +1188,9 @@ function Interpreter:Call(name: string, args: { any }): any
 	elseif name == "sprintf" then
 		local format = toText(values[1])
 		local rest = {}
-		for i = 2, #values do table.insert(rest, values[i]) end
+		for i = 2, #values do
+			table.insert(rest, values[i])
+		end
 		return printfFormat(format, rest)
 	elseif name == "match" then
 		local text = toText(values[1])
@@ -801,16 +1206,22 @@ function Interpreter:Call(name: string, args: { any }): any
 		return 0
 	elseif name == "split" then
 		local text = toText(values[1])
-		local target = args[2]
+		local target = arguments[2]
 		if target and target.Kind == "var" then
 			local separator = if values[3] ~= nil then toText(values[3]) else self.FS
-			local pieces = if separator == " " then (function()
-				local list = {}
-				for piece in string.gmatch(text, "%S+") do table.insert(list, piece) end
-				return list
-			end)() else string.split(text, separator)
+			local pieces = if separator == " "
+				then (function()
+					local list = {}
+					for piece in string.gmatch(text, "%S+") do
+						table.insert(list, piece)
+					end
+					return list
+				end)()
+				else string.split(text, separator)
 			local array = {}
-			for i, piece in pieces do array[tostring(i)] = piece end
+			for i, piece in pieces do
+				array[tostring(i)] = piece
+			end
 			self.Arrays[target.Name] = array
 			return #pieces
 		end
@@ -818,9 +1229,11 @@ function Interpreter:Call(name: string, args: { any }): any
 	elseif name == "sub" or name == "gsub" then
 		local pattern = if type(values[1]) == "table" then values[1].__regex else toText(values[1])
 		local replacement = toText(values[2])
-		local target = args[3] or { Kind = "field", Index = { Kind = "num", Value = 0 } }
+		local target = arguments[3] or { Kind = "field", Index = { Kind = "num", Value = 0 } }
 		local setter = lvalue(target)
-		if not setter then return 0 end
+		if not setter then
+			return 0
+		end
 		local current = self:Eval(target)
 		local matcher = self:Regex(pattern)
 		local out = {}
@@ -829,12 +1242,16 @@ function Interpreter:Call(name: string, args: { any }): any
 
 		while position <= #toText(current) do
 			local s, e = matcher:Find(toText(current), position)
-			if not s then break end
+			if not s then
+				break
+			end
 			table.insert(out, string.sub(toText(current), position, s - 1))
 			table.insert(out, string.gsub(replacement, "&", string.sub(toText(current), s, e)))
 			position = e + 1
 			count += 1
-			if name == "sub" then break end
+			if name == "sub" then
+				break
+			end
 		end
 
 		if count > 0 then
@@ -852,8 +1269,15 @@ local CONTINUE = { __control = "continue" }
 local NEXT = { __control = "next" }
 local EXIT = { __control = "exit" }
 
+--[=[
+	Executes an awk statement.
+
+	@param node The syntax tree node to evaluate.
+]=]
 function Interpreter:Exec(node)
-	if not node then return nil end
+	if not node then
+		return nil
+	end
 	self:Step()
 
 	local kind = node.Kind
@@ -861,7 +1285,9 @@ function Interpreter:Exec(node)
 	if kind == "block" then
 		for _, statement in node.Body do
 			local control = self:Exec(statement)
-			if control then return control end
+			if control then
+				return control
+			end
 		end
 		return nil
 	elseif kind == "expr" then
@@ -872,17 +1298,21 @@ function Interpreter:Exec(node)
 		if #node.Args == 0 then
 			table.insert(parts, self.Record)
 		else
-			for _, arg in node.Args do
-				table.insert(parts, toText(self:Eval(arg)))
+			for _, argument in node.Args do
+				table.insert(parts, toText(self:Eval(argument)))
 			end
 		end
 		table.insert(self.Output, table.concat(parts, self.OFS) .. self.ORS)
 		return nil
 	elseif kind == "printf" then
-		if #node.Args == 0 then return nil end
+		if #node.Args == 0 then
+			return nil
+		end
 		local format = toText(self:Eval(node.Args[1]))
 		local values = {}
-		for i = 2, #node.Args do table.insert(values, self:Eval(node.Args[i])) end
+		for i = 2, #node.Args do
+			table.insert(values, self:Eval(node.Args[i]))
+		end
 		table.insert(self.Output, printfFormat(format, values))
 		return nil
 	elseif kind == "if" then
@@ -895,26 +1325,42 @@ function Interpreter:Exec(node)
 	elseif kind == "while" then
 		while truthy(self:Eval(node.Cond)) do
 			local control = self:Exec(node.Body)
-			if control == BREAK then break end
-			if control and control ~= CONTINUE then return control end
+			if control == BREAK then
+				break
+			end
+			if control and control ~= CONTINUE then
+				return control
+			end
 			self:Step()
 		end
 		return nil
 	elseif kind == "do" then
 		repeat
 			local control = self:Exec(node.Body)
-			if control == BREAK then break end
-			if control and control ~= CONTINUE then return control end
+			if control == BREAK then
+				break
+			end
+			if control and control ~= CONTINUE then
+				return control
+			end
 			self:Step()
 		until not truthy(self:Eval(node.Cond))
 		return nil
 	elseif kind == "for" then
-		if node.Init then self:Eval(node.Init) end
+		if node.Init then
+			self:Eval(node.Init)
+		end
 		while node.Cond == nil or truthy(self:Eval(node.Cond)) do
 			local control = self:Exec(node.Body)
-			if control == BREAK then break end
-			if control and control ~= CONTINUE then return control end
-			if node.Step then self:Eval(node.Step) end
+			if control == BREAK then
+				break
+			end
+			if control and control ~= CONTINUE then
+				return control
+			end
+			if node.Step then
+				self:Eval(node.Step)
+			end
 			self:Step()
 		end
 		return nil
@@ -926,32 +1372,47 @@ function Interpreter:Exec(node)
 		return NEXT
 	elseif kind == "exit" then
 		self.Exit = true
-		if node.Code then self.ExitCode = math.floor(toNumber(self:Eval(node.Code))) end
+		if node.Code then
+			self.ExitCode = math.floor(toNumber(self:Eval(node.Code)))
+		end
 		return EXIT
 	end
 
 	return nil
 end
 
+--[=[
+	Runs the program over the input lines.
+
+	@param lines The lines to process.
+]=]
 function Interpreter:Run(lines)
 	local beginRules = {}
 	local endRules = {}
 	local rules = {}
 
 	for _, rule in self.Program do
-		if rule.Special == "BEGIN" then table.insert(beginRules, rule)
-		elseif rule.Special == "END" then table.insert(endRules, rule)
-		else table.insert(rules, rule) end
+		if rule.Special == "BEGIN" then
+			table.insert(beginRules, rule)
+		elseif rule.Special == "END" then
+			table.insert(endRules, rule)
+		else
+			table.insert(rules, rule)
+		end
 	end
 
 	for _, rule in beginRules do
 		local control = self:Exec(rule.Action)
-		if control == EXIT then break end
+		if control == EXIT then
+			break
+		end
 	end
 
 	if not self.Exit then
 		for _, line in lines do
-			if self.Exit then break end
+			if self.Exit then
+				break
+			end
 			self.NR += 1
 			self.FNR += 1
 			self:SetRecord(line)
@@ -983,8 +1444,12 @@ function Interpreter:Run(lines)
 						rule.RangeActive = false
 					end
 
-					if control == NEXT then break end
-					if control == EXIT then break end
+					if control == NEXT then
+						break
+					end
+					if control == EXIT then
+						break
+					end
 				end
 			end
 		end
@@ -1002,15 +1467,21 @@ return {
 	Permission = "Any",
 	Description = "Pattern scanning and processing language (practical subset)",
 	Args = {},
+	--[=[
+		Pattern scanning and processing language (practical subset).
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "F:v:f:", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "F:v:f:", {
 			field_separator = "F",
 			assign = "v",
 			file = "f",
 		})
 
-		if err then
-			context:Error(`awk: {err}`, 2)
+		if errorValue then
+			context:Error(`awk: {errorValue}`, 2)
 			return ""
 		end
 
@@ -1033,7 +1504,9 @@ return {
 		local vars = {}
 		if options.v then
 			local name, value = string.match(options.v, "^([^=]+)=(.*)$")
-			if name then vars[name] = value end
+			if name then
+				vars[name] = value
+			end
 		end
 
 		local tokens, tokenError = tokenize(program)
@@ -1066,7 +1539,9 @@ return {
 			return ""
 		end
 
-		if code ~= 0 then context:SetCode(code) end
+		if code ~= 0 then
+			context:SetCode(code)
+		end
 		return output
 	end,
 }

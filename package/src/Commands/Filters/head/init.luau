@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `head` command: Output the first part of stdin (default: 10
+	lines).
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +23,14 @@ return {
 	Permission = "Any",
 	Description = "Output the first part of stdin (default: 10 lines)",
 	Args = {},
+	--[=[
+		Output the first part of stdin (default: 10 lines).
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "n:c:qvz", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "n:c:qvz", {
 			lines = "n",
 			bytes = "c",
 			quiet = "q",
@@ -27,8 +38,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`head: {err}`, 2)
+		if errorValue then
+			context:Error(`head: {errorValue}`, 2)
 			return ""
 		end
 
@@ -63,14 +74,18 @@ return {
 
 		if fromLine then
 			local out = {}
-			for i = math.max(1, count), #lines do table.insert(out, lines[i]) end
+			for i = math.max(1, count), #lines do
+				table.insert(out, lines[i])
+			end
 			return table.concat(out, "\n")
 		end
 
 		if count < 0 then
 			local keep = math.max(0, #lines + count)
 			local out = {}
-			for i = 1, keep do table.insert(out, lines[i]) end
+			for i = 1, keep do
+				table.insert(out, lines[i])
+			end
 			return table.concat(out, "\n")
 		end
 

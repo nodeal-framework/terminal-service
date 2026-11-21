@@ -24,18 +24,43 @@ local Text = require(script.Parent.Parent.Text)
 
 local Grep = {}
 
+--[=[
+	Escapes every Lua pattern metacharacter in a string.
+
+	@param text The text to inspect.
+
+	@return The resulting text.
+]=]
 local function literalPattern(text: string): string
 	return (string.gsub(text, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0"))
 end
 
+--[=[
+	Checks that a match is bounded by non-word characters.
+
+	@param text The text to inspect.
+	@param s The text to inspect.
+	@param e The value or error to inspect.
+
+	@return True when the condition holds.
+]=]
 local function wordMatch(text: string, s: number, e: number): boolean
 	local before = if s > 1 then string.sub(text, s - 1, s - 1) else ""
 	local after = if e < #text then string.sub(text, e + 1, e + 1) else ""
 	return not string.match(before, "[%w_]") and not string.match(after, "[%w_]")
 end
 
-function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, string, string)
-	local options, operands, err = Getopt.parse(args, "ivncoqwxEFe:A:B:C:m:slLhHrf", {
+--[=[
+	Runs the shared grep implementation.
+
+	@param context The command context.
+	@param arguments The command arguments.
+	@param defaultInvert Whether matching is inverted by default.
+
+	@return The exit status, standard output and standard error.
+]=]
+function Grep.run(context, arguments: { string }, defaultInvert: boolean?): (number, string, string)
+	local options, operands, errorValue = Getopt.parse(arguments, "ivncoqwxEFe:A:B:C:m:slLhHrf", {
 		ignore_case = "i",
 		invert_match = "v",
 		line_number = "n",
@@ -59,8 +84,8 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 		with_filename = "H",
 	})
 
-	if err then
-		return 2, "", `grep: {err}`
+	if errorValue then
+		return 2, "", `grep: {errorValue}`
 	end
 
 	local patterns = {}
@@ -111,7 +136,10 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 
 	for _, pattern in patterns do
 		if literal then
-			table.insert(matchers, { Literal = if ignoreCase then string.lower(pattern) else pattern })
+			table.insert(
+				matchers,
+				{ Literal = if ignoreCase then string.lower(pattern) else pattern }
+			)
 		else
 			local translated = if basic then Regex.breToEre(pattern) else pattern
 			local compiled = Regex.compile(translated, ignoreCase)
@@ -119,17 +147,30 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 		end
 	end
 
+	--[=[
+		Tests one line against every configured matcher.
+
+		@param line The line to process.
+
+		@return True when the condition holds.
+	]=]
 	local function matches(line: string): boolean
 		for _, matcher in matchers do
 			if matcher.Literal then
 				local haystack = if ignoreCase then string.lower(line) else line
 				local found = string.find(haystack, matcher.Literal, 1, true)
-				if found and (not word or wordMatch(haystack, found, found + #matcher.Literal - 1)) then
+				if
+					found and (not word or wordMatch(haystack, found, found + #matcher.Literal - 1))
+				then
 					return true
 				end
 			else
 				local s, e = matcher.Regex:Find(line)
-				if s and (not word or wordMatch(line, s, e)) and (not wholeLine or (s == 1 and e == #line)) then
+				if
+					s
+					and (not word or wordMatch(line, s, e))
+					and (not wholeLine or (s == 1 and e == #line))
+				then
 					return true
 				end
 			end
@@ -137,6 +178,13 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 		return false
 	end
 
+	--[=[
+		Returns the non-overlapping matched segments of a line.
+
+		@param line The line to process.
+
+		@return The resulting list.
+	]=]
 	local function matchedSegments(line: string): { string }
 		local segments = {}
 		for _, matcher in matchers do
@@ -149,7 +197,9 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 				local init = 1
 				while init <= #haystack do
 					local s, e = string.find(haystack, matcher.Literal, init, true)
-					if not s then break end
+					if not s then
+						break
+					end
 					table.insert(segments, string.sub(line, s, e))
 					init = e + 1
 				end
@@ -215,7 +265,10 @@ function Grep.run(context, args: { string }, defaultInvert: boolean?): (number, 
 				if last > 0 and index > last + 1 then
 					table.insert(contextual, "--")
 				end
-				table.insert(contextual, if lineNumber then `{index}:{lines[index]}` else lines[index])
+				table.insert(
+					contextual,
+					if lineNumber then `{index}:{lines[index]}` else lines[index]
+				)
 				last = index
 			end
 		end

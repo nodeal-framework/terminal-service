@@ -1,4 +1,30 @@
+--[[
+    © 2026 Nodeal Package. All rights reserved.
+
+    This source code is open-source and free for modification and use in your projects.
+    However, you may not sell, sublicense, or distribute this framework (or 
+    any rebranded version of it) as a standalone product.
+
+    Any public use or redistribution of this module requires this header 
+    to remain intact in the source code. For the complete license terms, 
+    please visit: https://www.nodeal.dev/license
+]]
+
+--[=[
+	Argument type `EnumItem`: validates, transforms and autocompletes input
+	typed into the terminal.
+]=]
+
 return {
+	--[=[
+		Validates raw terminal input for this type.
+
+		@param text The text typed by the player.
+		@param executor The player running the command.
+		@param terminalService The terminal service.
+		@param argSpec The argument specification.
+		@return True when the text is valid, plus an error message otherwise.
+	]=]
 	Validate = function(text: string, executor: Player, terminalService: any, argSpec: any)
 		local specificEnum = (argSpec and type(argSpec.Enum) == "userdata") and argSpec.Enum or nil
 
@@ -40,6 +66,15 @@ return {
 		return false, "Invalid EnumItem"
 	end,
 
+	--[=[
+		Converts validated text into the value the command receives.
+
+		@param text The validated text.
+		@param executor The player running the command.
+		@param terminalService The terminal service.
+		@param argSpec The argument specification.
+		@return The typed value.
+	]=]
 	Transform = function(text: string, executor: Player, terminalService: any, argSpec: any)
 		local specificEnum = (argSpec and type(argSpec.Enum) == "userdata") and argSpec.Enum or nil
 
@@ -81,6 +116,15 @@ return {
 		return nil
 	end,
 
+	--[=[
+		Returns completion candidates for partially typed text.
+
+		@param text The text typed so far.
+		@param executor The player running the command.
+		@param terminalService The terminal service.
+		@param argSpec The argument specification.
+		@return The list of suggestions.
+	]=]
 	Autocomplete = function(text: string, executor: Player, terminalService: any, argSpec: any)
 		local specificEnum = (argSpec and type(argSpec.Enum) == "userdata") and argSpec.Enum or nil
 		local suggestions = {}
@@ -98,15 +142,24 @@ return {
 				local bestScore = math.max(score1, score2, score3)
 
 				if bestScore > 0 then
-					local bestText = score1 >= score2 and (score1 >= score3 and name1 or name3) or (score2 >= score3 and name2 or name3)
-					table.insert(suggestions, { Text = bestText, Description = tostring(item.Value), Score = bestScore })
+					local bestText = score1 >= score2 and (score1 >= score3 and name1 or name3)
+						or (score2 >= score3 and name2 or name3)
+					table.insert(
+						suggestions,
+						{ Text = bestText, Description = tostring(item.Value), Score = bestScore }
+					)
 				end
 			end
 		else
 			local parts = string.split(text, ".")
 			if #parts == 1 then
 				local sEnum = terminalService.FuzzyMatch(text, "Enum")
-				if sEnum > 0 then table.insert(suggestions, { Text = "Enum", Description = "Roblox Enums", Score = sEnum }) end
+				if sEnum > 0 then
+					table.insert(
+						suggestions,
+						{ Text = "Enum", Description = "Roblox Enums", Score = sEnum }
+					)
+				end
 
 				local dedup = {}
 				for _, enumCat in Enum:GetEnums() do
@@ -114,7 +167,10 @@ return {
 					local score = terminalService.FuzzyMatch(text, justName)
 					if score > 0 and not dedup[justName] then
 						dedup[justName] = true
-						table.insert(suggestions, { Text = justName, Description = "Enum Category", Score = score })
+						table.insert(
+							suggestions,
+							{ Text = justName, Description = "Enum Category", Score = score }
+						)
 					end
 				end
 			elseif #parts == 2 then
@@ -126,7 +182,11 @@ return {
 						local score = terminalService.FuzzyMatch(query, justName)
 						if score > 0 and not dedup[justName] then
 							dedup[justName] = true
-							table.insert(suggestions, { Text = "Enum." .. justName, Description = "Enum Category", Score = score })
+							table.insert(suggestions, {
+								Text = "Enum." .. justName,
+								Description = "Enum Category",
+								Score = score,
+							})
 						end
 					end
 				else
@@ -139,7 +199,11 @@ return {
 							for _, item in enumCat:GetEnumItems() do
 								local score = terminalService.FuzzyMatch(itemQuery, item.Name)
 								if score > 0 then
-									table.insert(suggestions, { Text = justName .. "." .. item.Name, Description = tostring(item.Value), Score = (catScore + score) / 2 })
+									table.insert(suggestions, {
+										Text = justName .. "." .. item.Name,
+										Description = tostring(item.Value),
+										Score = (catScore + score) / 2,
+									})
 								end
 							end
 						end
@@ -156,7 +220,11 @@ return {
 							for _, item in enumCat:GetEnumItems() do
 								local score = terminalService.FuzzyMatch(itemQuery, item.Name)
 								if score > 0 then
-									table.insert(suggestions, { Text = "Enum." .. justName .. "." .. item.Name, Description = tostring(item.Value), Score = (catScore + score) / 2 })
+									table.insert(suggestions, {
+										Text = "Enum." .. justName .. "." .. item.Name,
+										Description = tostring(item.Value),
+										Score = (catScore + score) / 2,
+									})
 								end
 							end
 						end
@@ -174,5 +242,5 @@ return {
 			end
 		end
 		return finalSuggestions
-	end
+	end,
 }

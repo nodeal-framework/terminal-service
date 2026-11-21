@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `paste` command: Merge lines of stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,15 +22,21 @@ return {
 	Permission = "Any",
 	Description = "Merge lines of stdin",
 	Args = {},
+	--[=[
+		Merge lines of stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "d:sz", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "d:sz", {
 			delimiters = "d",
 			serial = "s",
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`paste: {err}`, 2)
+		if errorValue then
+			context:Error(`paste: {errorValue}`, 2)
 			return ""
 		end
 
@@ -41,7 +51,11 @@ return {
 		if options.s then
 			local out = {}
 			for index, line in lines do
-				local delimiter = string.sub(delimiters, ((index - 1) % #delimiters) + 1, ((index - 1) % #delimiters) + 1)
+				local delimiter = string.sub(
+					delimiters,
+					((index - 1) % #delimiters) + 1,
+					((index - 1) % #delimiters) + 1
+				)
 				table.insert(out, line .. (if index < #lines then delimiter else ""))
 			end
 			return table.concat(out)

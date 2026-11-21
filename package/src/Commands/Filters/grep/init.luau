@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `grep` command: Filter stdin: keep lines matching a POSIX
+	extended regular expression.
+]=]
+
 local Grep = require(script.Parent.Parent.Parent.Parent.Classes.Grep)
 
 return {
@@ -18,11 +23,17 @@ return {
 	Aliases = { "match" },
 	Description = "Filter stdin: keep lines matching a POSIX extended regular expression",
 	Args = {},
+	--[=[
+		Filter stdin: keep lines matching a POSIX extended regular expression.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local code, output, err = Grep.run(context, context.Args, false)
+		local code, output, errorValue = Grep.run(context, context.Args, false)
 		context:SetCode(code)
-		if err ~= "" then
-			context:Error(err, code)
+		if errorValue ~= "" then
+			context:Error(errorValue, code)
 		end
 		return output
 	end,

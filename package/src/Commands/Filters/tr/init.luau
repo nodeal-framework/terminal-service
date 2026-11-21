@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `tr` command: Translate, squeeze, or delete characters from
+	stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -24,21 +29,37 @@ local CLASSES = {
 	xdigit = "0123456789ABCDEFabcdef",
 	punct = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
 	cntrl = "\1\2\3\4\5\6\7\8\9\10\11\12\13\14\15\16\17\18\19\20\21\22\23\24\25\26\27\28\29\30\31\127",
-	graph = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
-	print = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+	graph = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		.. "[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
+	print = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		.. "[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~",
 }
 
 local ESCAPES = {
-	a = "\a", b = "\b", f = "\f", n = "\n", r = "\r", t = "\t", v = "\v",
-	["\\"] = "\\", ["0"] = "\0",
+	a = "\a",
+	b = "\b",
+	f = "\f",
+	n = "\n",
+	r = "\r",
+	t = "\t",
+	v = "\v",
+	["\\"] = "\\",
+	["0"] = "\0",
 }
 
+--[=[
+	Parses a `tr` character set.
+
+	@param spec The specification to parse.
+
+	@return The resulting list.
+]=]
 local function parseSet(spec: string): { string }
 	local chars = {}
 	local i = 1
-	local len = #spec
+	local length = #spec
 
-	while i <= len do
+	while i <= length do
 		local c = string.sub(spec, i, i)
 
 		if c == "[" and string.sub(spec, i + 1, i + 1) == ":" then
@@ -47,14 +68,16 @@ local function parseSet(spec: string): { string }
 				local name = string.sub(spec, i + 2, close - 1)
 				local class = CLASSES[name]
 				if class then
-					for j = 1, #class do table.insert(chars, string.sub(class, j, j)) end
+					for j = 1, #class do
+						table.insert(chars, string.sub(class, j, j))
+					end
 				end
 				i = close + 2
 				continue
 			end
 		end
 
-		if c == "\\" and i < len then
+		if c == "\\" and i < length then
 			local n = string.sub(spec, i + 1, i + 1)
 			if ESCAPES[n] then
 				table.insert(chars, ESCAPES[n])
@@ -74,7 +97,7 @@ local function parseSet(spec: string): { string }
 			end
 		end
 
-		if i + 2 <= len and string.sub(spec, i + 1, i + 1) == "-" then
+		if i + 2 <= length and string.sub(spec, i + 1, i + 1) == "-" then
 			local first = string.byte(c)
 			local last = string.byte(string.sub(spec, i + 2, i + 2))
 			if first and last then
@@ -94,9 +117,18 @@ local function parseSet(spec: string): { string }
 	return chars
 end
 
+--[=[
+	Builds a lookup set from characters.
+
+	@param chars The characters to map.
+
+	@return The resulting list.
+]=]
 local function setOf(chars: { string }): { [string]: boolean }
 	local set = {}
-	for _, c in chars do set[c] = true end
+	for _, c in chars do
+		set[c] = true
+	end
 	return set
 end
 
@@ -105,16 +137,22 @@ return {
 	Permission = "Any",
 	Description = "Translate, squeeze, or delete characters from stdin",
 	Args = {},
+	--[=[
+		Translate, squeeze, or delete characters from stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "cdstC", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "cdstC", {
 			complement = "c",
 			delete = "d",
 			squeeze_repeats = "s",
 			truncate_set1 = "t",
 		})
 
-		if err then
-			context:Error(`tr: {err}`, 2)
+		if errorValue then
+			context:Error(`tr: {errorValue}`, 2)
 			return ""
 		end
 
@@ -131,7 +169,9 @@ return {
 			local complement = {}
 			for code = 0, 255 do
 				local c = string.char(code)
-				if not present[c] then table.insert(complement, c) end
+				if not present[c] then
+					table.insert(complement, c)
+				end
 			end
 			set1Chars = complement
 		end

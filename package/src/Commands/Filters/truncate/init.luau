@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `limit` command: Keep at most N lines of stdin (there is no
+	filesystem to truncate).
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -19,13 +24,19 @@ return {
 	Aliases = { "trunc" },
 	Description = "Keep at most N lines of stdin (there is no filesystem to truncate)",
 	Args = {},
+	--[=[
+		Keep at most N lines of stdin (there is no filesystem to truncate).
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "n:", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "n:", {
 			lines = "n",
 		})
 
-		if err then
-			context:Error(`limit: {err}`, 2)
+		if errorValue then
+			context:Error(`limit: {errorValue}`, 2)
 			return ""
 		end
 
@@ -38,7 +49,9 @@ return {
 		local out = {}
 		local index = 0
 		for _, line in Text.lines(context:GetInput()) do
-			if index >= count then break end
+			if index >= count then
+				break
+			end
 			table.insert(out, line)
 			index += 1
 		end

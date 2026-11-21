@@ -10,10 +10,24 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `sed` command: Stream editor for filtering and transforming
+	text.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Regex = require(script.Parent.Parent.Parent.Parent.Classes.Regex)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
+--[=[
+	Reads text up to a delimiter, honouring backslash escapes.
+
+	@param script The script text to parse.
+	@param index The position to start at.
+	@param delimiter The delimiter to use.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function readDelimited(script: string, index: number, delimiter: string): (string, number)
 	local out = {}
 	local i = index
@@ -40,6 +54,14 @@ local function readDelimited(script: string, index: number, delimiter: string): 
 	return table.concat(out), i
 end
 
+--[=[
+	Skips whitespace in a sed script.
+
+	@param script The script text to parse.
+	@param index The position to start at.
+
+	@return The resulting number.
+]=]
 local function skipSpaces(script: string, index: number): number
 	while index <= #script and string.match(string.sub(script, index, index), "%s") do
 		index += 1
@@ -47,6 +69,14 @@ local function skipSpaces(script: string, index: number): number
 	return index
 end
 
+--[=[
+	Parses one sed address.
+
+	@param script The script text to parse.
+	@param index The position to start at.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function parseAddress(script: string, index: number): (any, number)
 	index = skipSpaces(script, index)
 	local c = string.sub(script, index, index)
@@ -59,7 +89,8 @@ local function parseAddress(script: string, index: number): (any, number)
 		if string.sub(script, nextIndex, nextIndex) == "~" then
 			local step = tonumber(string.match(string.sub(script, nextIndex + 1), "^%d+"))
 			if step then
-				return { Type = "step", Number = number, Step = step }, nextIndex + 1 + #tostring(step)
+				return { Type = "step", Number = number, Step = step },
+					nextIndex + 1 + #tostring(step)
 			end
 		end
 		return { Type = "number", Number = number }, nextIndex
@@ -68,7 +99,9 @@ local function parseAddress(script: string, index: number): (any, number)
 		return { Type = "regex", Pattern = pattern }, nextIndex
 	elseif c == "\\" then
 		local delimiter = string.sub(script, index + 1, index + 1)
-		if delimiter == "" then return nil, index end
+		if delimiter == "" then
+			return nil, index
+		end
 		local pattern, nextIndex = readDelimited(script, index + 2, delimiter)
 		return { Type = "regex", Pattern = pattern }, nextIndex
 	end
@@ -76,13 +109,22 @@ local function parseAddress(script: string, index: number): (any, number)
 	return nil, index
 end
 
+--[=[
+	Parses a sed script into commands.
+
+	@param script The script text to parse.
+
+	@return The exit status, standard output and standard error.
+]=]
 local function parseScript(script: string): (any?, string?)
 	local commands = {}
 	local index = 1
 
 	while index <= #script do
 		index = skipSpaces(script, index)
-		if index > #script then break end
+		if index > #script then
+			break
+		end
 		if string.sub(script, index, index) == "\n" or string.sub(script, index, index) == ";" then
 			index += 1
 			continue
@@ -109,7 +151,9 @@ local function parseScript(script: string): (any?, string?)
 		end
 
 		local command = string.sub(script, index, index)
-		if command == "" then break end
+		if command == "" then
+			break
+		end
 		index += 1
 
 		local item = {
@@ -136,7 +180,9 @@ local function parseScript(script: string): (any?, string?)
 			local flags = {}
 			while index <= #script do
 				local c = string.sub(script, index, index)
-				if c == ";" or c == "\n" then break end
+				if c == ";" or c == "\n" then
+					break
+				end
 				if string.match(c, "%s") then
 					index += 1
 				else
@@ -149,7 +195,9 @@ local function parseScript(script: string): (any?, string?)
 			local start = index
 			while index <= #script do
 				local c = string.sub(script, index, index)
-				if c == ";" or c == "\n" then break end
+				if c == ";" or c == "\n" then
+					break
+				end
 				index += 1
 			end
 			local text = string.sub(script, start, index - 1)
@@ -177,11 +225,29 @@ local function parseScript(script: string): (any?, string?)
 	return commands, nil
 end
 
+--[=[
+	Compiles a sed pattern as a BRE or ERE.
+
+	@param pattern The pattern to match.
+	@param ignoreCase Whether matching ignores case.
+	@param basic Whether to use basic regular expressions.
+
+	@return The compiled regular expression.
+]=]
 local function regexFor(pattern: string, ignoreCase: boolean, basic: boolean): any
 	local translated = if basic then Regex.breToEre(pattern) else pattern
 	return Regex.compile(translated, ignoreCase)
 end
 
+--[=[
+	Expands `&` and `\1` in a replacement string.
+
+	@param replacement The replacement text.
+	@param matched The already matched segments.
+	@param captures The capture table.
+
+	@return The resulting text.
+]=]
 local function expandReplacement(replacement: string, matched: string, captures): string
 	local out = {}
 	local i = 1
@@ -228,7 +294,24 @@ local function expandReplacement(replacement: string, matched: string, captures)
 	return table.concat(out)
 end
 
-local function replaceMatches(line: string, matcher, replacement: string, global: boolean, nth: number?): (string, number)
+--[=[
+	Replaces matches on one line.
+
+	@param line The line to process.
+	@param matcher The matcher to apply.
+	@param replacement The replacement text.
+	@param global Whether to replace every match.
+	@param nth The field number to extract.
+
+	@return The exit status, standard output and standard error.
+]=]
+local function replaceMatches(
+	line: string,
+	matcher,
+	replacement: string,
+	global: boolean,
+	nth: number?
+): (string, number)
 	local out = {}
 	local position = 1
 	local count = 0
@@ -236,7 +319,9 @@ local function replaceMatches(line: string, matcher, replacement: string, global
 
 	while position <= #line do
 		local s, e, captures = matcher:Find(line, position)
-		if not s then break end
+		if not s then
+			break
+		end
 		count += 1
 
 		local include = if nth then count == nth else true
@@ -245,7 +330,9 @@ local function replaceMatches(line: string, matcher, replacement: string, global
 			table.insert(out, expandReplacement(replacement, string.sub(line, s, e), captures))
 			position = e + 1
 			replaced += 1
-			if not global and not nth then break end
+			if not global and not nth then
+				break
+			end
 		else
 			table.insert(out, string.sub(line, position, s))
 			position = s + 1
@@ -265,8 +352,14 @@ return {
 	Permission = "Any",
 	Description = "Stream editor for filtering and transforming text",
 	Args = {},
+	--[=[
+		Stream editor for filtering and transforming text.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "ne:f:irEsuz", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "ne:f:irEsuz", {
 			quiet = "n",
 			silent = "n",
 			expression = "e",
@@ -278,8 +371,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`sed: {err}`, 2)
+		if errorValue then
+			context:Error(`sed: {errorValue}`, 2)
 			return ""
 		end
 
@@ -317,11 +410,18 @@ return {
 		local exitCode = 0
 
 		for lineIndex, original in lines do
-			if stop then break end
+			if stop then
+				break
+			end
 			local line = original
 			local deleted = false
 			local appendText = nil
 
+			--[=[
+				Appends one output line.
+
+				@param value The value to convert.
+			]=]
 			local function emit(value: string)
 				table.insert(out, value)
 			end
@@ -335,7 +435,9 @@ return {
 					elseif item.First.Type == "number" then
 						firstMatch = lineIndex == item.First.Number
 					elseif item.First.Type == "step" then
-						firstMatch = item.First.Step > 0 and lineIndex % item.First.Step == item.First.Number % item.First.Step
+						firstMatch = item.First.Step > 0
+							and lineIndex % item.First.Step
+								== item.First.Number % item.First.Step
 					elseif item.First.Type == "regex" then
 						firstMatch = regexFor(item.First.Pattern, false, not extended):Test(line)
 					end
@@ -351,7 +453,8 @@ return {
 						elseif item.Second.Type == "number" then
 							secondMatch = lineIndex == item.Second.Number
 						elseif item.Second.Type == "regex" then
-							secondMatch = regexFor(item.Second.Pattern, false, not extended):Test(line)
+							secondMatch =
+								regexFor(item.Second.Pattern, false, not extended):Test(line)
 						end
 						if applies and secondMatch then
 							item.Active = false
@@ -361,8 +464,12 @@ return {
 					end
 				end
 
-				if item.Negate then applies = not applies end
-				if not applies then continue end
+				if item.Negate then
+					applies = not applies
+				end
+				if not applies then
+					continue
+				end
 
 				if item.Command == "d" then
 					deleted = true
@@ -372,17 +479,22 @@ return {
 				elseif item.Command == "=" then
 					emit(tostring(lineIndex))
 				elseif item.Command == "q" or item.Command == "Q" then
-					if not quiet and not deleted then emit(line) end
+					if not quiet and not deleted then
+						emit(line)
+					end
 					deleted = true
 					stop = true
-					if item.Code then exitCode = item.Code end
+					if item.Code then
+						exitCode = item.Code
+					end
 					break
 				elseif item.Command == "s" then
 					local ignoreCase = string.find(item.Flags or "", "[iI]", 1) ~= nil
 					local global = string.find(item.Flags or "", "g", 1, true) ~= nil
 					local nth = tonumber(string.match(item.Flags or "", "(%d+)"))
 					local matcher = regexFor(item.Pattern, ignoreCase, not extended)
-					local replaced, count = replaceMatches(line, matcher, item.Replacement, global, nth)
+					local replaced, count =
+						replaceMatches(line, matcher, item.Replacement, global, nth)
 					if count > 0 then
 						line = replaced
 						if string.find(item.Flags or "", "p", 1, true) then
@@ -405,9 +517,13 @@ return {
 				elseif item.Command == "a" then
 					appendText = item.Text
 				elseif item.Command == "i" then
-					if item.Text and item.Text ~= "" then emit(item.Text) end
+					if item.Text and item.Text ~= "" then
+						emit(item.Text)
+					end
 				elseif item.Command == "c" then
-					if item.Text and item.Text ~= "" then emit(item.Text) end
+					if item.Text and item.Text ~= "" then
+						emit(item.Text)
+					end
 					deleted = true
 					break
 				end

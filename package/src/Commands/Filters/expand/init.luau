@@ -10,9 +10,20 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `expand` command: Convert tabs to spaces.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
+--[=[
+	Parses a comma-separated list of tab stops.
+
+	@param spec The specification to parse.
+
+	@return The resulting list.
+]=]
 local function tabStops(spec: string?): { number }
 	local stops = {}
 	for value in string.gmatch(spec or "8", "[^,]+") do
@@ -21,7 +32,9 @@ local function tabStops(spec: string?): { number }
 			table.insert(stops, number)
 		end
 	end
-	if #stops == 0 then stops = { 8 } end
+	if #stops == 0 then
+		stops = { 8 }
+	end
 	return stops
 end
 
@@ -30,14 +43,20 @@ return {
 	Permission = "Any",
 	Description = "Convert tabs to spaces",
 	Args = {},
+	--[=[
+		Convert tabs to spaces.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "t:i", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "t:i", {
 			tabs = "t",
 			initial = "i",
 		})
 
-		if err then
-			context:Error(`expand: {err}`, 2)
+		if errorValue then
+			context:Error(`expand: {errorValue}`, 2)
 			return ""
 		end
 

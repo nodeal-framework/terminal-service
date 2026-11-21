@@ -10,6 +10,11 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `tail` command: Output the last part of stdin (default: 10
+	lines).
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +23,14 @@ return {
 	Permission = "Any",
 	Description = "Output the last part of stdin (default: 10 lines)",
 	Args = {},
+	--[=[
+		Output the last part of stdin (default: 10 lines).
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "n:c:qvfz", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "n:c:qvfz", {
 			lines = "n",
 			bytes = "c",
 			quiet = "q",
@@ -28,8 +39,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`tail: {err}`, 2)
+		if errorValue then
+			context:Error(`tail: {errorValue}`, 2)
 			return ""
 		end
 
@@ -74,19 +85,25 @@ return {
 
 		if fromLine then
 			local out = {}
-			for i = math.max(1, count), #lines do table.insert(out, lines[i]) end
+			for i = math.max(1, count), #lines do
+				table.insert(out, lines[i])
+			end
 			return table.concat(out, "\n")
 		end
 
 		if count < 0 then
 			local out = {}
-			for i = 1, math.max(0, #lines + count) do table.insert(out, lines[i]) end
+			for i = 1, math.max(0, #lines + count) do
+				table.insert(out, lines[i])
+			end
 			return table.concat(out, "\n")
 		end
 
 		local start = math.max(1, #lines - count + 1)
 		local out = {}
-		for i = start, #lines do table.insert(out, lines[i]) end
+		for i = start, #lines do
+			table.insert(out, lines[i])
+		end
 		return table.concat(out, "\n")
 	end,
 }

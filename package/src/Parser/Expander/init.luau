@@ -32,6 +32,13 @@ type Segment = {
 	Boundary: boolean?,
 }
 
+--[=[
+	Concatenates the text of word parts.
+
+	@param parts The parts to combine.
+
+	@return The resulting text.
+]=]
 local function concatParts(parts): string
 	local out = {}
 	for _, part in parts do
@@ -40,7 +47,22 @@ local function concatParts(parts): string
 	return table.concat(out)
 end
 
-local function findMatching(text: string, startIdx: number, openChar: string, closeChar: string): number?
+--[=[
+	Finds the closing delimiter of a nested expression.
+
+	@param text The text to inspect.
+	@param startIdx The index to start scanning from.
+	@param openChar The opening delimiter.
+	@param closeChar The closing delimiter.
+
+	@return The resulting number, or nil.
+]=]
+local function findMatching(
+	text: string,
+	startIdx: number,
+	openChar: string,
+	closeChar: string
+): number?
 	local depth = 0
 	local i = startIdx
 	local len = #text
@@ -50,11 +72,13 @@ local function findMatching(text: string, startIdx: number, openChar: string, cl
 		local c = string.sub(text, i, i)
 
 		if quote == 1 then
-			if c == "'" then quote = 0 end
+			if c == "'" then
+				quote = 0
+			end
 		elseif quote == 2 then
 			if c == "\\" then
 				i += 1
-			elseif c == "\"" then
+			elseif c == '"' then
 				quote = 0
 			end
 		else
@@ -62,7 +86,7 @@ local function findMatching(text: string, startIdx: number, openChar: string, cl
 				i += 1
 			elseif c == "'" then
 				quote = 1
-			elseif c == "\"" then
+			elseif c == '"' then
 				quote = 2
 			elseif c == openChar then
 				depth += 1
@@ -82,6 +106,14 @@ end
 
 --// Brace expansion //--
 
+--[=[
+	Splits text on a separator outside quotes and nesting.
+
+	@param text The text to inspect.
+	@param separator The separator to split on.
+
+	@return The resulting list.
+]=]
 local function splitTopLevel(text: string, separator: string): { string }
 	local parts = {}
 	local current = {}
@@ -95,13 +127,15 @@ local function splitTopLevel(text: string, separator: string): { string }
 
 		if quote == 1 then
 			table.insert(current, c)
-			if c == "'" then quote = 0 end
+			if c == "'" then
+				quote = 0
+			end
 		elseif quote == 2 then
 			table.insert(current, c)
 			if c == "\\" and i < len then
 				i += 1
 				table.insert(current, string.sub(text, i, i))
-			elseif c == "\"" then
+			elseif c == '"' then
 				quote = 0
 			end
 		else
@@ -112,7 +146,7 @@ local function splitTopLevel(text: string, separator: string): { string }
 			elseif c == "'" then
 				quote = 1
 				table.insert(current, c)
-			elseif c == "\"" then
+			elseif c == '"' then
 				quote = 2
 				table.insert(current, c)
 			elseif c == "{" then
@@ -136,6 +170,14 @@ local function splitTopLevel(text: string, separator: string): { string }
 	return parts
 end
 
+--[=[
+	Finds the closing brace of a brace expansion.
+
+	@param text The text to inspect.
+	@param startIdx The index to start scanning from.
+
+	@return The resulting number, or nil.
+]=]
 local function findBrace(text: string, startIdx: number): number?
 	local depth = 1
 	local i = startIdx + 1
@@ -147,7 +189,9 @@ local function findBrace(text: string, startIdx: number): number?
 			depth += 1
 		elseif c == "}" then
 			depth -= 1
-			if depth == 0 then return i end
+			if depth == 0 then
+				return i
+			end
 		end
 		i += 1
 	end
@@ -155,6 +199,13 @@ local function findBrace(text: string, startIdx: number): number?
 	return nil
 end
 
+--[=[
+	Expands one brace expression into alternatives.
+
+	@param text The text to inspect.
+
+	@return The resulting list.
+]=]
 local function expandBraceText(text: string): { string }
 	local braceStart = nil
 	local i = 1
@@ -189,17 +240,25 @@ local function expandBraceText(text: string): { string }
 
 	if startNum then
 		local a, b, step = tonumber(startNum), tonumber(endNum), tonumber(stepNum)
-		if step == 0 then return { text } end
+		if step == 0 then
+			return { text }
+		end
 		step = if a <= b then math.abs(step) else -math.abs(step)
-		if (b - a) * step < 0 then return { text } end
+		if (b - a) * step < 0 then
+			return { text }
+		end
 		local width = math.max(#string.gsub(startNum, "^-", ""), #string.gsub(endNum, "^-", ""))
 		local pad = string.match(startNum, "^-?0%d") ~= nil or string.match(endNum, "^-?0%d") ~= nil
 		for v = a, b, step do
-			if #values >= MAX_BRACE then return { text } end
+			if #values >= MAX_BRACE then
+				return { text }
+			end
 			local s = tostring(v)
 			if pad then
 				local sign = if v < 0 then "-" else ""
-				s = sign .. string.rep("0", math.max(0, width - #string.gsub(s, "^-", ""))) .. string.gsub(s, "^-", "")
+				s = sign
+					.. string.rep("0", math.max(0, width - #string.gsub(s, "^-", "")))
+					.. string.gsub(s, "^-", "")
 			end
 			table.insert(values, s)
 		end
@@ -207,30 +266,43 @@ local function expandBraceText(text: string): { string }
 		local a, b = tonumber(startNum2), tonumber(endNum2)
 		local step = if a <= b then 1 else -1
 		local width = math.max(#string.gsub(startNum2, "^-", ""), #string.gsub(endNum2, "^-", ""))
-		local pad = string.match(startNum2, "^-?0%d") ~= nil or string.match(endNum2, "^-?0%d") ~= nil
+		local pad = string.match(startNum2, "^-?0%d") ~= nil
+			or string.match(endNum2, "^-?0%d") ~= nil
 		for v = a, b, step do
-			if #values >= MAX_BRACE then return { text } end
+			if #values >= MAX_BRACE then
+				return { text }
+			end
 			local s = tostring(v)
 			if pad then
 				local sign = if v < 0 then "-" else ""
-				s = sign .. string.rep("0", math.max(0, width - #string.gsub(s, "^-", ""))) .. string.gsub(s, "^-", "")
+				s = sign
+					.. string.rep("0", math.max(0, width - #string.gsub(s, "^-", "")))
+					.. string.gsub(s, "^-", "")
 			end
 			table.insert(values, s)
 		end
 	elseif startChar2 then
 		local a, b, step = string.byte(startChar2), string.byte(endChar2), tonumber(charStep)
-		if step == 0 then return { text } end
+		if step == 0 then
+			return { text }
+		end
 		step = if a <= b then math.abs(step) else -math.abs(step)
-		if (b - a) * step < 0 then return { text } end
+		if (b - a) * step < 0 then
+			return { text }
+		end
 		for v = a, b, step do
-			if #values >= MAX_BRACE then return { text } end
+			if #values >= MAX_BRACE then
+				return { text }
+			end
 			table.insert(values, string.char(v))
 		end
 	elseif startChar3 then
 		local a, b = string.byte(startChar3), string.byte(endChar3)
 		local step = if a <= b then 1 else -1
 		for v = a, b, step do
-			if #values >= MAX_BRACE then return { text } end
+			if #values >= MAX_BRACE then
+				return { text }
+			end
 			table.insert(values, string.char(v))
 		end
 	else
@@ -255,6 +327,13 @@ local function expandBraceText(text: string): { string }
 	return results
 end
 
+--[=[
+	Applies brace expansion across word parts.
+
+	@param parts The parts to combine.
+
+	@return The resulting list.
+]=]
 local function braceExpandParts(parts): { { any } }
 	local variants = { {} }
 
@@ -281,6 +360,13 @@ end
 
 --// Expansion helpers //--
 
+--[=[
+	Appends literal text to the expansion segments.
+
+	@param segments The expansion segments.
+	@param text The text to inspect.
+	@param quote The quote mode of the text.
+]=]
 local function appendLiteral(segments: { Segment }, text: string, quote: number)
 	if text == "" and quote == 0 then
 		return
@@ -293,6 +379,13 @@ local function appendLiteral(segments: { Segment }, text: string, quote: number)
 	end
 end
 
+--[=[
+	Concatenates expanded segments without field splitting.
+
+	@param segments The expansion segments.
+
+	@return The resulting text.
+]=]
 local function segmentsToString(segments: { Segment }): string
 	local out = {}
 	for _, segment in segments do
@@ -303,12 +396,29 @@ local function segmentsToString(segments: { Segment }): string
 	return table.concat(out)
 end
 
+--[=[
+	Returns the first character of IFS.
+
+	@param shell The shell instance.
+
+	@return The resulting text.
+]=]
 local function firstIfs(shell): string
 	local ifs = shell:GetVar("IFS")
-	if ifs == nil then ifs = " \t\n" end
+	if ifs == nil then
+		ifs = " \t\n"
+	end
 	return string.sub(ifs, 1, 1)
 end
 
+--[=[
+	Joins positional parameters with the first IFS character.
+
+	@param shell The shell instance.
+	@param skipEmpty Whether to drop empty fields.
+
+	@return The resulting text.
+]=]
 local function joinPositional(shell, skipEmpty: boolean): string
 	local out = {}
 	for _, value in shell:GetPositional() do
@@ -319,6 +429,14 @@ local function joinPositional(shell, skipEmpty: boolean): string
 	return table.concat(out, " ")
 end
 
+--[=[
+	Returns the values of a shell array.
+
+	@param shell The shell instance.
+	@param name The name to look up.
+
+	@return The resulting list.
+]=]
 local function arrayValues(shell, name: string): { string }?
 	local array = shell.Arrays and shell.Arrays[name]
 	if not array then
@@ -332,8 +450,18 @@ local function arrayValues(shell, name: string): { string }?
 	return values
 end
 
+--[=[
+	Evaluates an array subscript to an index.
+
+	@param shell The shell instance.
+	@param subscript The array subscript.
+
+	@return The resulting number.
+]=]
 local function resolveSubscript(shell, subscript: string): number
-	if subscript == "" then return 0 end
+	if subscript == "" then
+		return 0
+	end
 
 	local ok, value = pcall(shell.Arithmetic, shell, subscript)
 	if ok and type(value) == "number" then
@@ -343,6 +471,15 @@ local function resolveSubscript(shell, subscript: string): number
 	return tonumber(subscript) or 0
 end
 
+--[=[
+	Reads one array element.
+
+	@param shell The shell instance.
+	@param name The name to look up.
+	@param subscript The array subscript.
+
+	@return The resulting text, or nil.
+]=]
 local function arrayElement(shell, name: string, subscript: string): string?
 	local array = shell.Arrays and shell.Arrays[name]
 	if not array then
@@ -358,20 +495,42 @@ local function arrayElement(shell, name: string, subscript: string): string?
 	return array[index]
 end
 
+--[=[
+	Returns the value of a special parameter such as `$?`.
+
+	@param shell The shell instance.
+	@param name The name to look up.
+
+	@return The resulting text, or nil.
+]=]
 local function specialValue(shell, name: string): string?
-	if name == "?" then return tostring(shell.Status) end
-	if name == "$" then return tostring(shell.Pid) end
+	if name == "?" then
+		return tostring(shell.Status)
+	end
+	if name == "$" then
+		return tostring(shell.Pid)
+	end
 	if name == "!" then
 		if shell.LastBg then
 			return tostring(shell.LastBg)
 		end
 		return ""
 	end
-	if name == "#" then return tostring(#shell:GetPositional()) end
-	if name == "-" then return shell:OptionFlags() end
-	if name == "_" then return shell.LastArg or "" end
-	if name == "0" then return shell.Name end
-	if name == "@" or name == "*" then return joinPositional(shell, false) end
+	if name == "#" then
+		return tostring(#shell:GetPositional())
+	end
+	if name == "-" then
+		return shell:OptionFlags()
+	end
+	if name == "_" then
+		return shell.LastArg or ""
+	end
+	if name == "0" then
+		return shell.Name
+	end
+	if name == "@" or name == "*" then
+		return joinPositional(shell, false)
+	end
 
 	local digit = tonumber(name)
 	if digit and digit >= 1 and digit <= 9 then
@@ -391,6 +550,15 @@ local function specialValue(shell, name: string): string?
 	return nil
 end
 
+--[=[
+	Checks whether a parameter is unset.
+
+	@param shell The shell instance.
+	@param name The name to look up.
+	@param subscript The array subscript.
+
+	@return True when the condition holds.
+]=]
 local function isUnset(shell, name: string, subscript: string?): boolean
 	if subscript then
 		return arrayElement(shell, name, subscript) == nil
@@ -398,12 +566,32 @@ local function isUnset(shell, name: string, subscript: string?): boolean
 	return specialValue(shell, name) == nil
 end
 
+--[=[
+	Checks whether a parameter is unset or empty.
+
+	@param shell The shell instance.
+	@param name The name to look up.
+	@param subscript The array subscript.
+
+	@return True when the condition holds.
+]=]
 local function isEmpty(shell, name: string, subscript: string?): boolean
-	local value = if subscript then arrayElement(shell, name, subscript) else specialValue(shell, name)
+	local value = if subscript
+		then arrayElement(shell, name, subscript)
+		else specialValue(shell, name)
 	return value == nil or value == ""
 end
 
 -- Resolves the body of `${name<op>word}`.
+--[=[
+	Expands a `${name<op>word}` parameter expression.
+
+	@param shell The shell instance.
+	@param content The text to measure.
+	@param quoted Whether the delimiter is quoted.
+
+	@return The resulting text.
+]=]
 local function parameterExpansion(shell, content: string, quoted: boolean): string
 	if string.sub(content, 1, 1) == "#" and string.sub(content, 2, 2) ~= "" then
 		local rest = string.sub(content, 2)
@@ -446,7 +634,9 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 
 	if indirect then
 		local target = specialValue(shell, name)
-		if not target or target == "" then return "" end
+		if not target or target == "" then
+			return ""
+		end
 		name = target
 	end
 
@@ -459,6 +649,11 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		end
 	end
 
+	--[=[
+		Reads the current value of a parameter.
+
+		@return The resulting text, or nil.
+	]=]
 	local function current(): string?
 		if subscript then
 			return arrayElement(shell, name, subscript)
@@ -466,12 +661,15 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		return specialValue(shell, name)
 	end
 
-	-- ${var:-word}, ${var:=word}, ${var:+word}, ${var:?word} and the unset-only forms
+	-- ${var:-word}, ${var:=word}, ${var:+word}, ${var:?word} and the
+	-- unset-only forms
 	local op, word = string.match(rest, "^(%:?[-=+?])(.*)$")
 	if op then
 		local useEmpty = string.sub(op, 1, 1) == ":"
 		local kind = string.sub(op, #op, #op)
-		local unset = if useEmpty then isEmpty(shell, name, subscript) else isUnset(shell, name, subscript)
+		local unset = if useEmpty
+			then isEmpty(shell, name, subscript)
+			else isUnset(shell, name, subscript)
 		local expandedWord = shell:ExpandInline(word)
 
 		if kind == "-" then
@@ -490,7 +688,10 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 			return ""
 		elseif kind == "?" then
 			if unset then
-				error(`{name}: {if expandedWord ~= "" then expandedWord else "parameter not set"}`, 0)
+				error(
+					`{name}: {if expandedWord ~= "" then expandedWord else "parameter not set"}`,
+					0
+				)
 			end
 			return current() or ""
 		end
@@ -599,8 +800,12 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		local value = current() or ""
 		local luaPattern = Glob.toLua(pat)
 
-		if anchorStart then luaPattern = "^" .. luaPattern end
-		if anchorEnd then luaPattern = luaPattern .. "$" end
+		if anchorStart then
+			luaPattern = "^" .. luaPattern
+		end
+		if anchorEnd then
+			luaPattern = luaPattern .. "$"
+		end
 
 		local replaced = string.gsub(value, luaPattern, function(match)
 			return string.gsub(repl, "&", match)
@@ -614,7 +819,9 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 	if offsetText then
 		local value = current() or ""
 		local offset = tonumber(offsetText) or 0
-		if offset < 0 then offset = math.max(0, #value + offset) end
+		if offset < 0 then
+			offset = math.max(0, #value + offset)
+		end
 		local length = tonumber(lengthText)
 		if lengthText == "" or lengthText == nil then
 			return string.sub(value, offset + 1)
@@ -641,7 +848,9 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		local value = current() or ""
 		local upper = string.sub(caseOp, 1, 1) == "^"
 		local all = #caseOp == 2
-		if value == "" then return value end
+		if value == "" then
+			return value
+		end
 
 		if not all then
 			local first = string.sub(value, 1, 1)
@@ -662,6 +871,14 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 	return value or ""
 end
 
+--[=[
+	Expands text into quoted segments.
+
+	@param text The text to inspect.
+	@param quote The quote mode of the text.
+	@param shell The shell instance.
+	@param segments The expansion segments.
+]=]
 local function expandText(text: string, quote: number, shell, segments: { Segment })
 	if text == "" then
 		if quote ~= 0 then
@@ -674,6 +891,9 @@ local function expandText(text: string, quote: number, shell, segments: { Segmen
 	local len = #text
 	local literal = {}
 
+	--[=[
+		Flushes pending literal text into a segment.
+	]=]
 	local function flush()
 		if #literal > 0 then
 			appendLiteral(segments, table.concat(literal), quote)
@@ -715,7 +935,8 @@ local function expandText(text: string, quote: number, shell, segments: { Segmen
 				flush()
 				local content = string.sub(text, i + 2, close - 1)
 
-				local arrayName, arraySubscript = string.match(content, "^([%a_][%w_]*)%[([^%]]*)%]$")
+				local arrayName, arraySubscript =
+					string.match(content, "^([%a_][%w_]*)%[([^%]]*)%]$")
 				if arrayName and (arraySubscript == "@" or arraySubscript == "*") then
 					local values = arrayValues(shell, arrayName) or {}
 					if arraySubscript == "*" and quote == 2 then
@@ -840,6 +1061,14 @@ local function expandText(text: string, quote: number, shell, segments: { Segmen
 	flush()
 end
 
+--[=[
+	Splits expanded segments into words using IFS.
+
+	@param segments The expansion segments.
+	@param ifs The current IFS value.
+
+	@return The resulting list.
+]=]
 local function splitFields(segments: { Segment }, ifs: string): { string }
 	if ifs == "" then
 		local value = segmentsToString(segments)
@@ -853,6 +1082,9 @@ local function splitFields(segments: { Segment }, ifs: string): { string }
 	local current = {}
 	local hasField = false
 
+	--[=[
+		Finishes the current field.
+	]=]
 	local function push()
 		if hasField then
 			table.insert(fields, table.concat(current))
@@ -896,6 +1128,9 @@ end
 
 --[=[
 	Expands one word token into zero or more fields.
+
+	@param token The token to inspect.
+	@param shell The shell instance.
 ]=]
 function Expander.expandWord(token, shell): { string }
 	if not token or token.Type ~= "word" then
@@ -903,7 +1138,9 @@ function Expander.expandWord(token, shell): { string }
 	end
 
 	local ifs = shell:GetVar("IFS")
-	if ifs == nil then ifs = " \t\n" end
+	if ifs == nil then
+		ifs = " \t\n"
+	end
 
 	local variants = braceExpandParts(token.Parts or {})
 	local fields = {}
@@ -924,10 +1161,17 @@ end
 
 --[=[
 	Expands a word as a single value: no word splitting (assignment, redirect, case word).
+
+	@param token The token to inspect.
+	@param shell The shell instance.
 ]=]
 function Expander.expandWordSingle(token, shell): string
-	if not token then return "" end
-	if token.Type ~= "word" then return token.Value or "" end
+	if not token then
+		return ""
+	end
+	if token.Type ~= "word" then
+		return token.Value or ""
+	end
 
 	local variants = braceExpandParts(token.Parts or {})
 	local parts = variants[1] or {}
@@ -942,6 +1186,9 @@ end
 
 --[=[
 	Expands a list of word tokens into fields.
+
+	@param tokens The token list to parse.
+	@param shell The shell instance.
 ]=]
 function Expander.expandWords(tokens, shell): { string }
 	local words = {}
@@ -955,15 +1202,28 @@ end
 
 --[=[
 	Expands a string as if it were an unquoted word (used by here-strings and eval).
+
+	@param text The text to inspect.
+	@param shell The shell instance.
 ]=]
 function Expander.expandString(text: string, shell): { string }
 	local segments = {}
 	expandText(text, 0, shell, segments)
 	local ifs = shell:GetVar("IFS")
-	if ifs == nil then ifs = " \t\n" end
+	if ifs == nil then
+		ifs = " \t\n"
+	end
 	return splitFields(segments, ifs)
 end
 
+--[=[
+	Expands text without word splitting.
+
+	@param text The text to inspect.
+	@param shell The shell instance.
+
+	@return The resulting text.
+]=]
 function Expander.expandStringSingle(text: string, shell): string
 	local segments = {}
 	expandText(text, 0, shell, segments)

@@ -10,6 +10,10 @@
     please visit: https://www.nodeal.dev/license
 ]]
 
+--[=[
+	Implements the `uniq` command: Filter adjacent matching lines from stdin.
+]=]
+
 local Getopt = require(script.Parent.Parent.Parent.Parent.Classes.Getopt)
 local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
@@ -18,8 +22,14 @@ return {
 	Permission = "Any",
 	Description = "Filter adjacent matching lines from stdin",
 	Args = {},
+	--[=[
+		Filter adjacent matching lines from stdin.
+
+		@param context The command context.
+		@return A status message when the command succeeds.
+	]=]
 	Run = function(context)
-		local options, operands, err = Getopt.parse(context.Args, "cduif:s:w:z", {
+		local options, operands, errorValue = Getopt.parse(context.Args, "cduif:s:w:z", {
 			count = "c",
 			repeated = "d",
 			unique = "u",
@@ -30,8 +40,8 @@ return {
 			zero_terminated = "z",
 		})
 
-		if err then
-			context:Error(`uniq: {err}`, 2)
+		if errorValue then
+			context:Error(`uniq: {errorValue}`, 2)
 			return ""
 		end
 
@@ -45,6 +55,13 @@ return {
 		local checkChars = tonumber(options.w)
 		local ignoreCase = options.i == true
 
+		--[=[
+			Returns the comparison key for a line.
+
+			@param line The line to process.
+
+			@return The resulting text.
+		]=]
 		local function keyOf(line: string): string
 			local value = line
 			if skipFields > 0 then
@@ -85,12 +102,22 @@ return {
 			end
 
 			local include = true
-			if options.d then include = count > 1 end
-			if options.u then include = count == 1 end
+			if options.d then
+				include = count > 1
+			end
+			if options.u then
+				include = count == 1
+			end
 
 			if include then
 				if options.c then
-					table.insert(out, string.rep(" ", math.max(0, 7 - #tostring(count))) .. tostring(count) .. " " .. lines[index])
+					table.insert(
+						out,
+						string.rep(" ", math.max(0, 7 - #tostring(count)))
+							.. tostring(count)
+							.. " "
+							.. lines[index]
+					)
 				else
 					table.insert(out, lines[index])
 				end
