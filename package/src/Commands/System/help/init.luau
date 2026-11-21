@@ -36,8 +36,11 @@ function Help.Run(context, commandName: string?)
 		end
 
 		table.insert(list, "")
+		table.insert(list, "Shell syntax: if/for/while/until/case, functions, source, aliases, variables, pipes.")
 		table.insert(list, "Tip: Use '` <player>' to redirect stdout to a player's terminal.")
 		table.insert(list, "Tip: Pipe commands with '|', chain with ';', '&&', '||'.")
+		table.insert(list, "Tip: Here-documents work: 'cat <<EOF ... EOF' and '<<-EOF' strip leading tabs.")
+		table.insert(list, "Tip: There is no filesystem: '< file', 'cat file' and 'cd' are unavailable.")
 		return table.concat(list, "\n")
 	end
 
