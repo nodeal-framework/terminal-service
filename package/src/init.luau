@@ -21,10 +21,9 @@ local BridgeService = game:GetService("BridgeService")
 
 --// Modules //--
 local Lexer = require(script.Parser.Lexer)
-local Expander = require(script.Parser.Expander)
-local Parser = require(script.Parser.Parser)
-local CommandContext = require(script.Classes.CommandContext)
 local Command = require(script.Classes.Command)
+local Shell = require(script.Classes.Shell)
+local Builtins = require(script.Classes.Shell.Builtins)
 
 --// Private //--
 local Network = BridgeService:GetNetwork("TerminalService")
@@ -33,17 +32,22 @@ local _commands = {}
 local _aliases = {}
 local _types = {}
 
+for name, builtin in Builtins do
+	if builtin.Name then
+		for _, alias in builtin.Aliases or {} do
+			_aliases[alias] = name
+		end
+	end
+end
+
 local _history = {}
 local _historyMax = 200
+local _shells = {}
 local _serverStart = os.clock()
 
 -- What one line from a client may cost the server, checked before any of it runs.
 local MAX_LINE = 500 -- characters
-local MAX_TOKENS = 256 -- words, once braces are expanded
-local MAX_COMMANDS = 16 -- commands chained with ; && || | >
 local MAX_OUTPUT = 16384 -- characters sent back or redirected
-
-local OPERATORS = { [";"] = true, ["&&"] = true, ["||"] = true, ["|"] = true, [">"] = true }
 
 -- A command that declares no Permission is admin-only: forgetting the field must not open it to every client.
 TerminalService.DefaultPermission = script:GetAttribute("DefaultPermission") or "Admin"
@@ -78,7 +82,10 @@ local function filtered(from: Player?, text: any): any
 		return TextService:FilterStringAsync(text, from.UserId, Enum.TextFilterContext.PublicChat):GetNonChatStringForBroadcastAsync()
 	end)
 
-	return if ok then result else nil
+	if ok then
+		return result
+	end
+	return nil
 end
 
 -- The terminal a command sees: what its player sends to others is filtered first. Everything else is the service itself.
@@ -114,114 +121,6 @@ local function terminalFor(executor: Player?): any
 			TerminalService:SendSystemChat(target, clean(message))
 		end,
 	}, { __index = TerminalService, __newindex = TerminalService })
-end
-
-local function evaluateAST(node: any, stdin: string, executor: Player): (number, string, string)
-	if not node then return 0, "", "" end
-
-	if node.type == "Command" then
-		local command = TerminalService:GetCommand(node.name)
-		if not command then
-			return 1, "", `Command '{node.name}' not found`
-		end
-
-		local context = CommandContext.new(executor, node.args, stdin, terminalFor(executor))
-		command:Execute(context, node.args, TerminalService)
-
-		return context.Code, context.Output, context.ErrorMsg
-
-	elseif node.type == "Redirect" then
-		local code, stdout, stderr = evaluateAST(node.command, stdin, executor)
-		if code ~= 0 then
-			return code, stdout, stderr
-		end
-
-		if stdout ~= "" then
-			local targets = {}
-			local playerType = TerminalService:GetType("Player")
-
-			if playerType then
-				if playerType.Validate(node.target, executor) then
-					local target = playerType.Transform(node.target, executor)
-					if type(target) == "table" and target.__isMultiValue then
-						targets = target.Values
-					elseif typeof(target) == "Instance" and target:IsA("Player") then
-						targets = { target }
-					end
-				end
-			else
-				local targetPlayer = Players:FindFirstChild(node.target)
-				if targetPlayer and targetPlayer:IsA("Player") then
-					targets = { targetPlayer }
-				end
-			end
-
-			-- anyone could print into every console with `echo ... > all`
-			local others = false
-			for _, p in targets do
-				if p ~= executor then
-					if not allowed(executor, TerminalService.RedirectPermission) then
-						return 1, "", "redirect: permission denied"
-					end
-					others = true
-				end
-			end
-
-			stdout = cap(stdout)
-
-			if others then
-				stdout = filtered(executor, stdout)
-				if stdout == nil then
-					return 1, "", "redirect: the text filter did not answer, nothing was sent"
-				end
-			end
-
-			for _, p in targets do
-				Network:Fire(p, "RedirectPrint", stdout)
-			end
-		end
-
-		return 0, "", ""
-
-	elseif node.type == "Pipeline" then
-		local code1, stdout1, stderr1 = evaluateAST(node.left, stdin, executor)
-		if code1 ~= 0 then
-			return code1, stdout1, stderr1
-		end
-
-		return evaluateAST(node.right, stdout1, executor)
-
-	elseif node.type == "Logical" then
-		if node.op == ";" then
-			local code1, stdout1, stderr1 = evaluateAST(node.left, stdin, executor)
-			local code2, stdout2, stderr2 = evaluateAST(node.right, stdin, executor)
-
-			local combinedStdout = stdout1 .. (stdout1 ~= "" and stdout2 ~= "" and "\n" or "") .. stdout2
-			local combinedStderr = stderr1 .. (stderr1 ~= "" and stderr2 ~= "" and "\n" or "") .. stderr2
-			local code = (code1 ~= 0 or code2 ~= 0) and 1 or 0
-
-			return code, combinedStdout, combinedStderr
-
-		elseif node.op == "&&" then
-			local code1, stdout1, stderr1 = evaluateAST(node.left, stdin, executor)
-			if code1 == 0 then
-				local code2, stdout2, stderr2 = evaluateAST(node.right, stdin, executor)
-				local combinedStdout = stdout1 .. (stdout1 ~= "" and stdout2 ~= "" and "\n" or "") .. stdout2
-				return code2, combinedStdout, stderr2
-			end
-			return code1, stdout1, stderr1
-
-		elseif node.op == "||" then
-			local code1, stdout1, stderr1 = evaluateAST(node.left, stdin, executor)
-			if code1 ~= 0 then
-				local code2, stdout2, stderr2 = evaluateAST(node.right, stdin, executor)
-				return code2, stdout2, stderr2
-			end
-			return code1, stdout1, stderr1
-		end
-	end
-
-	return 1, "", "Unknown AST Node type"
 end
 
 function TerminalService.FuzzyMatch(query: string, target: string): number
@@ -304,16 +203,21 @@ end
 ]=]
 function TerminalService:GetCommand(name: string): any?
 	local realName = _aliases[name] or name
-	return _commands[realName]
+	return Builtins[realName] or _commands[realName] or Builtins[name]
 end
 
 --[=[
-	Returns all registered commands.
+	Returns all registered commands and shell builtins.
 ]=]
 function TerminalService:GetCommands(): { [string]: any }
 	local copy = {}
 	for name, cmd in _commands do
 		copy[name] = cmd
+	end
+	for name, builtin in Builtins do
+		if builtin.Name == name then
+			copy[name] = builtin
+		end
 	end
 	return copy
 end
@@ -338,7 +242,22 @@ function TerminalService:GetType(typeName: string): any?
 end
 
 --[=[
-	Executes a Linux CLI command line.
+	Returns the shell state for a player (or the server's shell).
+]=]
+function TerminalService:GetShell(executor: Player?): any
+	local key = if executor then executor.UserId else 0
+	local shell = _shells[key]
+
+	if not shell then
+		shell = Shell.new(TerminalService, executor)
+		_shells[key] = shell
+	end
+
+	return shell
+end
+
+--[=[
+	Executes a Bash line.
 	Returns (code: number, stdout: string, stderr: string).
 ]=]
 function TerminalService:Execute(line: string, executor: Player?): (number, string, string)
@@ -352,44 +271,23 @@ function TerminalService:Execute(line: string, executor: Player?): (number, stri
 		table.remove(_history, 1)
 	end
 
-	local results = table.pack(pcall(function()
-		local rawTokens = Lexer.tokenize(line)
-		local expandedTokens = Expander.expand(rawTokens)
-
-		if #expandedTokens > MAX_TOKENS then
-			error(`too many words (more than {MAX_TOKENS})`, 0)
-		end
-
-		local commands = 1
-		for _, token in expandedTokens do
-			if OPERATORS[token] then
-				commands += 1
-			end
-		end
-
-		if commands > MAX_COMMANDS then
-			error(`too many commands in one line (more than {MAX_COMMANDS})`, 0)
-		end
-
-		local ast = Parser.parse(expandedTokens)
-
-		if not ast then
-			return 0, "", ""
-		end
-
-		return evaluateAST(ast, "", executor)
-	end))
-
-	local status = results[1]
-	if not status then
-		return 1, "", `Parser Error: {tostring(results[2])}`
+	local shell = TerminalService:GetShell(executor)
+	table.insert(shell.History, line)
+	if #shell.History > 500 then
+		table.remove(shell.History, 1)
 	end
+
+	local code, stdout, stderr = shell:RunLine(line)
+
+	-- The display renders one label per result: a final newline would draw an empty line.
+	stdout = string.gsub(stdout or "", "\n$", "")
+	stderr = string.gsub(stderr or "", "\n$", "")
 
 	if executor then
-		return results[2], cap(results[3]), cap(results[4])
+		return code, cap(stdout), cap(stderr)
 	end
 
-	return table.unpack(results, 2, results.n)
+	return code, stdout, stderr
 end
 
 function TerminalService:GetHistory(): { { line: string, time: number, executor: string } }
@@ -527,12 +425,15 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		return Network:Invoke("Autocomplete", line)
 	end
 
-	local tokens = Lexer.tokenize(line)
+	local ok, tokens = pcall(Lexer.tokenize, line)
+	if not ok then
+		return { Suggestions = {} }
+	end
 	local endsWithSpace = string.match(line, "%s$") ~= nil
 
 	if #tokens == 0 then
 		local list = {}
-		for name, cmd in _commands do
+		for name, cmd in TerminalService:GetCommands() do
 			table.insert(list, { Text = name, Description = cmd.Description or "", Usage = usageOf(cmd), Category = cmd.Category })
 		end
 		return { Suggestions = list }
@@ -540,9 +441,15 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 
 	local lastOpIdx = 0
 	local lastOp = nil
+	local function isRedirectOperator(t: string): boolean
+		return t == ">" or t == ">>" or t == ">|" or t == "&>" or t == "&>>"
+			or t == "2>" or t == "2>>" or string.match(t, "^%d+>") ~= nil
+	end
+
 	for i = #tokens, 1, -1 do
 		local t = tokens[i]
-		if t == ";" or t == "&&" or t == "||" or t == "|" or t == ">" then
+		if t == ";" or t == "&" or t == "&&" or t == "||" or t == "|" or t == "|&"
+			or t == "<" or t == "<<" or t == "<<<" or isRedirectOperator(t) then
 			lastOpIdx = i
 			lastOp = t
 			break
@@ -551,7 +458,7 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 
 	local cmdStartIdx = lastOpIdx + 1
 
-	if lastOp == ">" then
+	if lastOp and isRedirectOperator(lastOp) then
 		local currentArgText = ""
 		if cmdStartIdx <= #tokens then
 			local remaining = {}
@@ -583,7 +490,7 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		end
 
 		local list = {}
-		for name, cmd in _commands do
+		for name, cmd in TerminalService:GetCommands() do
 			local score = TerminalService.FuzzyMatch(prefix, name)
 			if score > 0 then
 				table.insert(list, { Text = name, Description = cmd.Description or "", Usage = usageOf(cmd), Category = cmd.Category, Score = score })
@@ -592,7 +499,7 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		for alias, cmdName in _aliases do
 			local score = TerminalService.FuzzyMatch(prefix, alias)
 			if score > 0 then
-				local cmd = _commands[cmdName]
+				local cmd = TerminalService:GetCommand(cmdName)
 				table.insert(list, { Text = alias, Description = `Alias for {cmdName}`, Usage = cmd and usageOf(cmd) or "", Category = cmd and cmd.Category, Score = score })
 			end
 		end
