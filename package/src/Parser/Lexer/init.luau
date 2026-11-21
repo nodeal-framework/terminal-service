@@ -34,7 +34,7 @@ export type Part = {
 }
 
 export type Token = {
-	Type: string, -- "word" | "op"
+	Type: string,
 	Value: string?,
 	Parts: { Part }?,
 	Quoted: boolean?,
@@ -44,7 +44,6 @@ export type Token = {
 	Checks whether a character is shell whitespace.
 
 	@param c The character to test.
-
 	@return True when the condition holds.
 ]=]
 local function isBlank(c: string): boolean
@@ -55,15 +54,12 @@ end
 	Checks whether a character can start an operator.
 
 	@param c The character to test.
-
 	@return True when the condition holds.
 ]=]
 local function isOperatorStart(c: string): boolean
 	return c == "|" or c == "&" or c == ">" or c == "<" or c == ";" or c == "(" or c == ")"
 end
 
--- Longest match first. The `%d+` forms are redirections with an explicit
--- file descriptor.
 local REDIRECT_OPS = { "<<<", "<<-", "<<", ">>", "<>", ">&", ">", "<" }
 
 --[=[
@@ -72,13 +68,11 @@ local REDIRECT_OPS = { "<<<", "<<-", "<<", ">>", "<>", ">&", ">", "<" }
 	@param input The input to process.
 	@param i The position to start at.
 	@param atWordStart Whether the operator starts a word.
-
 	@return The resulting text, or nil.
 ]=]
 local function matchOperator(input: string, i: number, atWordStart: boolean): string?
 	local rest = string.sub(input, i)
 
-	-- `2>`, `2>>`, `1>&2`, ... are one redirection token carrying the fd.
 	if atWordStart then
 		local fd = string.match(rest, "^(%d+)")
 		if fd then
@@ -129,14 +123,11 @@ local function matchOperator(input: string, i: number, atWordStart: boolean): st
 	return nil
 end
 
--- Copy a balanced `$(...)` / `$((...))` group. Quotes and backslashes inside
--- are respected, so `$(echo ")")` does not end at the quoted parenthesis.
 --[=[
 	Skips a parenthesised group, respecting quotes and nesting.
 
 	@param input The input to process.
 	@param startIdx The index to start scanning from.
-
 	@return The resulting number.
 ]=]
 local function consumeParen(input: string, startIdx: number): number
@@ -194,13 +185,11 @@ local function consumeParen(input: string, startIdx: number): number
 	error("unexpected EOF while looking for matching `)'", 0)
 end
 
--- Copy `${...}` including nested braces and quoted spaces.
 --[=[
 	Skips a brace group, respecting quotes and nesting.
 
 	@param input The input to process.
 	@param startIdx The index to start scanning from.
-
 	@return The resulting number.
 ]=]
 local function consumeBrace(input: string, startIdx: number): number
@@ -250,7 +239,6 @@ end
 
 	@param input The input to process.
 	@param startIdx The index to start scanning from.
-
 	@return The resulting number.
 ]=]
 local function consumeBacktick(input: string, startIdx: number): number
@@ -285,13 +273,11 @@ local ESCAPES: { [string]: string } = {
 	["?"] = "?",
 }
 
--- `$'...'` (ANSI-C quoting): escapes are interpreted and the result is literal.
 --[=[
 	Reads an ANSI-C quoted string.
 
 	@param input The input to process.
 	@param startIdx The index to start scanning from.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function readAnsiC(input: string, startIdx: number): (string, number)
@@ -382,8 +368,6 @@ function Lexer.lex(input: string): { Token }
 	local hasContent = false
 	local wordStarted = false
 
-	-- `<<` / `<<-` wait for the delimiter word; the body is read at the next
-	-- newline.
 	local pendingHeredocs = {}
 	local pendingHeredocOp = nil
 
@@ -454,12 +438,10 @@ function Lexer.lex(input: string): { Token }
 		end
 	end
 
-	-- Consumes here-document bodies starting at `startIdx` (just past a newline).
 	--[=[
 		Consumes pending here-document bodies after a newline.
 
 		@param startIdx The index to start scanning from.
-
 		@return The resulting number.
 	]=]
 	local function drainHeredocs(startIdx: number): number
@@ -526,7 +508,6 @@ function Lexer.lex(input: string): { Token }
 				pushWord()
 				i += 1
 			elseif c == "#" and not wordStarted then
-				-- comment until end of line
 				local nl = string.find(input, "\n", i, true)
 				i = if nl then nl else len + 1
 			elseif c == "\\" then
@@ -646,7 +627,7 @@ function Lexer.lex(input: string): { Token }
 				buffer ..= c
 				i += 1
 			end
-		else -- quote == 2
+		else
 			if c == '"' then
 				if buffer == "" then
 					table.insert(parts, { Text = "", Quote = 2 })

@@ -62,9 +62,6 @@ function Role.Autocomplete(text: string, executor: Player, terminal: table)
 	for _, role in AuthorizationService:GetRoles() do
 		local score = terminal.FuzzyMatch(text, role.Name)
 		if score > 0 then
-			-- Subtract a tiny fraction based on role value so lower value (least
-			-- important) gets a slightly higher score, placing them at the top of
-			-- the list when scores are equal.
 			local adjustedScore = score - ((role.Value or 0) * 0.0001)
 			table.insert(results, { Text = role.Name, Score = adjustedScore })
 		end

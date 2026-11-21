@@ -119,7 +119,6 @@ return {
 
 			local d = parseDuration(text)
 			if d then
-				-- Insert the exact matched value at the top if it's not already there
 				table.insert(
 					suggestions,
 					1,

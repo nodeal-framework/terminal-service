@@ -44,7 +44,6 @@ Shell.__index = Shell
 
 	@param a The first value.
 	@param b The second value.
-
 	@return The resulting text.
 ]=]
 local function joinOutput(a: string?, b: string?): string
@@ -64,7 +63,6 @@ end
 	Joins a list of output strings.
 
 	@param parts The parts to combine.
-
 	@return The resulting text.
 ]=]
 local function joinMany(parts: { string }): string
@@ -75,8 +73,6 @@ local function joinMany(parts: { string }): string
 	return out
 end
 
--- Shell control signals (break/continue/return) keep any output produced
--- earlier in the body.
 --[=[
 	Rethrows a shell control signal while preserving its output.
 
@@ -96,7 +92,6 @@ end
 	Truncates captured output to the shell limit.
 
 	@param text The text to inspect.
-
 	@return The resulting text.
 ]=]
 local function cap(text: string?): string
@@ -111,7 +106,6 @@ end
 	Returns the plain text of a word token.
 
 	@param token The token to inspect.
-
 	@return The resulting text, or nil.
 ]=]
 local function tokenText(token): string?
@@ -125,13 +119,10 @@ local function tokenText(token): string?
 	return table.concat(parts)
 end
 
--- `while read ...` must advance through stdin, not re-read the first line
--- forever.
 --[=[
 	Returns the `read` command of a `while read` condition, if any.
 
 	@param node The syntax tree node to evaluate.
-
 	@return The result, or nil.
 ]=]
 local function readCondition(node): any?
@@ -159,7 +150,6 @@ end
 	Splits text into lines, keeping the final unterminated line.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function splitLines(text: string): { string }
@@ -179,7 +169,6 @@ end
 
 	@param service The terminal service.
 	@param executor The player running the command.
-
 	@return The new shell.
 ]=]
 function Shell.new(service, executor)
@@ -334,7 +323,6 @@ end
 	Reads a variable, checking local frames first.
 
 	@param name The name to look up.
-
 	@return The resulting text, or nil.
 ]=]
 function Shell:GetVar(name: string): string?
@@ -483,7 +471,6 @@ end
 	Expands a string without word splitting.
 
 	@param text The text to inspect.
-
 	@return The resulting text.
 ]=]
 function Shell:ExpandInline(text: string): string
@@ -494,7 +481,6 @@ end
 	Evaluates an arithmetic expression.
 
 	@param expression The expression to evaluate.
-
 	@return The resulting number.
 ]=]
 function Shell:Arithmetic(expression: string): number
@@ -509,7 +495,6 @@ end
 	Runs a command in a child shell and captures its output.
 
 	@param text The text to inspect.
-
 	@return The resulting text.
 ]=]
 function Shell:CommandSubstitute(text: string): string
@@ -545,7 +530,6 @@ end
 	Collects the players named by a redirection target.
 
 	@param target The target of the operation.
-
 	@return The resulting list.
 ]=]
 local function collectPlayers(target: any): { Player }
@@ -584,7 +568,6 @@ end
 
 	@param text The text to inspect.
 	@param target The target of the operation.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:Redirect(text: string, target: string): (boolean, string?)
@@ -661,15 +644,11 @@ function Shell:Redirect(text: string, target: string): (boolean, string?)
 	return true, nil
 end
 
--- Here-document bodies with an unquoted delimiter behave like double quotes:
--- only `$`, `` ` `` and `\` can be escaped, and `\`-newline is a line
--- continuation.
 --[=[
 	Expands a here-document body.
 
 	@param body The here-document body.
 	@param shell The shell instance.
-
 	@return The resulting text.
 ]=]
 local function expandHereDoc(body: string, shell): string
@@ -721,7 +700,6 @@ end
 
 	@param redirects The redirections to apply.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:ApplyRedirects(redirects, stdin): (string, any)
@@ -761,9 +739,7 @@ function Shell:ApplyRedirects(redirects, stdin): (string, any)
 			elseif fd == 1 and target == "2" then
 				outToErr = true
 			elseif fd == 1 and target == "1" then
-				-- no-op
 			elseif fd == 2 and target == "2" then
-				-- no-op
 			else
 				return input, `{op}{target}: bad file descriptor`
 			end
@@ -798,7 +774,6 @@ end
 	Splits an alias value into words.
 
 	@param value The value to convert.
-
 	@return The resulting list.
 ]=]
 local function aliasWords(value: string): { string }
@@ -821,7 +796,6 @@ end
 	@param name The name to look up.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunFunction(
@@ -872,7 +846,6 @@ end
 	@param words The command words.
 	@param stdin The piped standard input.
 	@param flags The formatting flags.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:ExecuteCommand(
@@ -969,7 +942,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunLoopBody(node, stdin)
@@ -995,7 +967,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunSimple(node, stdin)
@@ -1098,7 +1069,6 @@ function Shell:RunSimple(node, stdin)
 			errorValue = joinOutput(`+ {table.concat(words, " ")}`, errorValue)
 		end
 
-		-- Prefix assignments only last for the command.
 		restoreAssignments()
 	end
 
@@ -1153,7 +1123,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunPipeline(node, stdin)
@@ -1233,7 +1202,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunAndOr(node, stdin)
@@ -1300,7 +1268,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunList(node, stdin)
@@ -1332,7 +1299,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunIf(node, stdin)
@@ -1363,7 +1329,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunWhile(node, stdin)
@@ -1499,7 +1464,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunFor(node, stdin)
@@ -1551,7 +1515,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunForArith(node, stdin)
@@ -1605,7 +1568,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunCase(node, stdin)
@@ -1662,7 +1624,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunRedirectNode(node, stdin)
@@ -1704,7 +1665,6 @@ end
 
 	@param node The syntax tree node to evaluate.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunNode(node, stdin): (number, string, string)
@@ -1716,8 +1676,6 @@ function Shell:RunNode(node, stdin): (number, string, string)
 
 	local kind = node.type
 
-	-- Redirections after a compound command (`while ...; done <<EOF`,
-	-- `if ...; fi > out`).
 	if node.Redirects and kind ~= "Simple" and kind ~= "Group" then
 		local inner = table.clone(node)
 		inner.Redirects = nil
@@ -1772,7 +1730,6 @@ end
 
 	@param line The line to process.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunString(line: string, stdin: string?): (number, string, string)
@@ -1788,7 +1745,6 @@ end
 	Resets per-line state and runs one input line.
 
 	@param line The line to process.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Shell:RunLine(line: string): (number, string, string)

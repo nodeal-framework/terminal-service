@@ -66,7 +66,6 @@ local REDIRECT_OPS = {
 	Returns the plain text of a word token.
 
 	@param token The token to inspect.
-
 	@return The resulting text, or nil.
 ]=]
 local function wordText(token): string?
@@ -85,7 +84,6 @@ end
 
 	@param token The token to inspect.
 	@param name The name to look up.
-
 	@return True when the condition holds.
 ]=]
 local function isReserved(token, name: string): boolean
@@ -100,7 +98,6 @@ end
 
 	@param token The token to inspect.
 	@param value The value to convert.
-
 	@return True when the condition holds.
 ]=]
 local function isOp(token, value: string): boolean
@@ -111,7 +108,6 @@ end
 	Checks whether an operator starts a redirection.
 
 	@param value The value to convert.
-
 	@return True when the condition holds.
 ]=]
 local function isRedirectOp(value: string): boolean
@@ -125,7 +121,6 @@ end
 	Splits an explicit file descriptor from a redirection operator.
 
 	@param op The operator to apply.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function parseFd(op: string): (number, string)
@@ -143,7 +138,6 @@ P.__index = P
 	Creates a parser over a token list.
 
 	@param tokens The token list to parse.
-
 	@return The new parser.
 ]=]
 function P.new(tokens: { any })
@@ -154,7 +148,6 @@ end
 	Returns a token ahead of the cursor.
 
 	@param offset The offset from the current position.
-
 	@return The next token, or nil.
 ]=]
 function P:peek(offset: number?)
@@ -186,7 +179,6 @@ end
 	Consumes a word token or raises a syntax error.
 
 	@param what The name to describe.
-
 	@return The expected token.
 ]=]
 function P:expectWord(what: string?)
@@ -202,7 +194,6 @@ end
 	Consumes an operator token or raises a syntax error.
 
 	@param value The value to convert.
-
 	@return The expected token.
 ]=]
 function P:expectOp(value: string)
@@ -221,7 +212,6 @@ end
 	Consumes a reserved word or raises a syntax error.
 
 	@param name The name to look up.
-
 	@return The expected token.
 ]=]
 function P:expectReserved(name: string)
@@ -241,7 +231,6 @@ end
 
 	@param stops The words that end the list.
 	@param stopOps The operators that end the list.
-
 	@return True when the condition holds.
 ]=]
 function P:atStop(stops, stopOps): boolean
@@ -292,7 +281,6 @@ end
 	Splits a word into a variable assignment when possible.
 
 	@param token The token to inspect.
-
 	@return The assignment parts, or nil.
 ]=]
 local function splitAssignment(token)
@@ -358,8 +346,8 @@ function P:tryParseArrayAssignment()
 		return nil
 	end
 
-	self:advance() -- name=
-	self:advance() -- (
+	self:advance()
+	self:advance()
 
 	local values = {}
 	local depth = 1
@@ -489,7 +477,6 @@ end
 	Splits a C-style `for` header into its three clauses.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function splitArithmeticFor(text: string): { string }
@@ -577,11 +564,10 @@ end
 	Parses a `while` or `until` loop.
 
 	@param untilLoop Whether this is an `until` loop.
-
 	@return The parsed syntax node.
 ]=]
 function P:parseWhile(untilLoop: boolean)
-	self:advance() -- while / until
+	self:advance()
 	local condition = self:parseList({ ["do"] = true }, nil)
 	self:expectReserved("do")
 	local body = self:parseList({ ["done"] = true }, nil)
@@ -708,7 +694,6 @@ end
 	Attaches trailing redirections to a compound command.
 
 	@param node The syntax tree node to evaluate.
-
 	@return The command with its redirections.
 ]=]
 function P:withRedirects(node)
@@ -777,7 +762,6 @@ function P:parseCommand(): any
 		return node
 	end
 
-	-- name() { ... }
 	if token.Type == "word" then
 		local second = self:peek(1)
 		local third = self:peek(2)
@@ -899,7 +883,6 @@ end
 
 	@param stops The words that end the list.
 	@param stopOps The operators that end the list.
-
 	@return The parsed syntax node.
 ]=]
 function P:parseList(stops, stopOps)

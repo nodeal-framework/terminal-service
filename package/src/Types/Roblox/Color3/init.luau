@@ -90,7 +90,6 @@ return {
 
 		local currentH, currentS, currentV = 0, 1, 1
 
-		-- Try to parse currentText to initialize positions
 		local c
 		if string.match(currentText, "^#%x%x%x%x%x%x$") then
 			c = Color3.fromHex(string.sub(currentText, 2))
@@ -109,7 +108,6 @@ return {
 			currentH, currentS, currentV = c:ToHSV()
 		end
 
-		-- Main SV Picker
 		local SVPicker = Instance.new("Frame")
 		SVPicker.Size = UDim2.new(0, 150, 0, 150)
 		SVPicker.Position = UDim2.new(0, 10, 0, 10)
@@ -147,7 +145,6 @@ return {
 		SVStroke.Thickness = 1
 		SVStroke.Parent = SVKnob
 
-		-- Hue Slider
 		local HuePicker = Instance.new("Frame")
 		HuePicker.Size = UDim2.new(0, 150, 0, 15)
 		HuePicker.Position = UDim2.new(0, 10, 0, 165)
@@ -178,7 +175,6 @@ return {
 		HueStroke.Thickness = 1
 		HueStroke.Parent = HueKnob
 
-		-- Preview
 		local Preview = Instance.new("Frame")
 		Preview.Size = UDim2.new(0, 60, 0, 60)
 		Preview.Position = UDim2.new(0, 175, 0, 10)
@@ -189,7 +185,6 @@ return {
 		PrevStroke.Thickness = 2
 		PrevStroke.Parent = Preview
 
-		-- Logic
 		local connections = {}
 		local isDraggingSV = false
 		local isDraggingHue = false

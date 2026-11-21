@@ -24,7 +24,6 @@ Command.__index = Command
 	Creates a command object from its definition table.
 
 	@param config The command definition table.
-
 	@return The new command.
 ]=]
 function Command.new(config: table)
@@ -41,16 +40,12 @@ function Command.new(config: table)
 	return self
 end
 
--- Checked on every run. A command that declares no Permission falls back on
--- TerminalService's DefaultPermission ("Admin" unless changed): open commands
--- say Permission = "Any".
 --[=[
 	Checks whether the executor may run this command.
 
 	@param command The command to run.
 	@param context The command context.
 	@param terminalService The terminal service.
-
 	@return True when the condition holds.
 ]=]
 local function isAllowed(command, context, terminalService): boolean
@@ -61,7 +56,6 @@ local function isAllowed(command, context, terminalService): boolean
 		return true
 	end
 
-	-- No executor: the server ran it itself, not a client.
 	local executor = context and context.Executor
 
 	if not executor then
@@ -70,7 +64,6 @@ local function isAllowed(command, context, terminalService): boolean
 
 	local auth = terminal and terminal.AuthorizationService
 
-	-- Fail closed: no authorization service means no privileged command.
 	if not auth then
 		return false
 	end
@@ -84,7 +77,6 @@ end
 	@param context The command context.
 	@param rawArgs The raw argument tokens.
 	@param terminalService The terminal service.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Command:Execute(context, rawArgs: { string }, terminalService)
@@ -117,7 +109,6 @@ function Command:Execute(context, rawArgs: { string }, terminalService)
 		end
 		local argDesc = argSpec.Description or argSpec.description
 
-		-- If this is the last argument, consume all remaining tokens joined by spaces
 		if index == #self.Args and rawVal ~= nil then
 			local remaining = {}
 			for i = index, #rawArgs do

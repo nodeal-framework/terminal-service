@@ -28,7 +28,6 @@ local Grep = {}
 	Escapes every Lua pattern metacharacter in a string.
 
 	@param text The text to inspect.
-
 	@return The resulting text.
 ]=]
 local function literalPattern(text: string): string
@@ -41,7 +40,6 @@ end
 	@param text The text to inspect.
 	@param s The text to inspect.
 	@param e The value or error to inspect.
-
 	@return True when the condition holds.
 ]=]
 local function wordMatch(text: string, s: number, e: number): boolean
@@ -56,7 +54,6 @@ end
 	@param context The command context.
 	@param arguments The command arguments.
 	@param defaultInvert Whether matching is inverted by default.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Grep.run(context, arguments: { string }, defaultInvert: boolean?): (number, string, string)
@@ -129,7 +126,6 @@ function Grep.run(context, arguments: { string }, defaultInvert: boolean?): (num
 	local after = tonumber(options.A) or tonumber(options.C) or 0
 	local before = tonumber(options.B) or tonumber(options.C) or 0
 
-	-- context above a match: keep a sliding window
 	local lines = Text.lines(context:GetInput())
 	local basic = options.E ~= true
 	local matchers = {}
@@ -151,7 +147,6 @@ function Grep.run(context, arguments: { string }, defaultInvert: boolean?): (num
 		Tests one line against every configured matcher.
 
 		@param line The line to process.
-
 		@return True when the condition holds.
 	]=]
 	local function matches(line: string): boolean
@@ -182,7 +177,6 @@ function Grep.run(context, arguments: { string }, defaultInvert: boolean?): (num
 		Returns the non-overlapping matched segments of a line.
 
 		@param line The line to process.
-
 		@return The resulting list.
 	]=]
 	local function matchedSegments(line: string): { string }

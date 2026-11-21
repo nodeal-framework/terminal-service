@@ -31,11 +31,9 @@ return {
 				Returns the type name typed as the first argument.
 
 				@param rawArgs The raw argument tokens.
-
 				@return The type name.
 			]=]
 			Type = function(rawArgs)
-				-- rawArgs[1] holds the value of the first argument: the type name.
 				return rawArgs[1] or "string"
 			end,
 			Description = "The value to test for the selected type",

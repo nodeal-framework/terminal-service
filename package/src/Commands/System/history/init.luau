@@ -16,7 +16,7 @@
 
 return {
 	Name = "history",
-	Permission = "Moderator", -- shows every player's commands, staff ones included
+	Permission = "Moderator",
 	Aliases = { "hist" },
 	Description = "Shows recent command history",
 	Args = {

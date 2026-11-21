@@ -36,9 +36,6 @@ local mainFrame
 local inputBar
 local autocompleteDropdown
 
--- The UI lives as real instances right under this module (src/Display).
--- Nothing below builds a GuiObject from code: the screen is cloned once, and
--- every repeated row is a template clone.
 local uiTemplates = script.Templates
 local terminalTemplate = script.Terminal
 
@@ -48,14 +45,10 @@ local suggestTemplate = uiTemplates.Suggestion
 local titleTemplate = uiTemplates.Signature
 local descriptionTemplate = uiTemplates.Description
 
--- The client runtime detaches every descendant before loading, so a plain
--- Clone() would return an empty instance. Rebuild one real prototype from the
--- Node tree, then native Clone() keeps working.
 --[=[
 	Rebuilds a cloned instance tree whose descendants were detached.
 
 	@param node The syntax tree node to evaluate.
-
 	@return The rebuilt instance tree.
 ]=]
 local function repairTree(node)
@@ -90,7 +83,6 @@ local lastSuggestionText = ""
 	Formats the shell prompt, optionally as rich text.
 
 	@param isHtml Whether the prompt uses rich text.
-
 	@return The formatted prompt.
 ]=]
 local function getPrompt(isHtml: boolean)
@@ -129,7 +121,6 @@ local function createUI()
 	autocompleteDropdown = terminalGui.Autocomplete
 	inputBar = entryFrame.Field
 
-	-- The prompt carries the player's name, so it is the one label set at runtime.
 	entryFrame.Prompt.Text = getPrompt(true)
 
 	local contentLayout = mainFrame:FindFirstChildOfClass("UIListLayout")
@@ -140,8 +131,6 @@ local function createUI()
 	end)
 end
 
--- Oldest lines go past this: output redirected by others could otherwise grow
--- the console for ever.
 local MAX_LINES = 500
 local consoleLines: { Instance } = {}
 
@@ -172,11 +161,9 @@ local function printToConsole(text: string, color: Color3?, promptHtml: string?)
 
 	text = string.gsub(text, "\t", "    ")
 
-	-- Both rows are templates: the prompt one only adds the echoed command's
-	-- prompt.
 	local template = if promptHtml then promptLinePrototype else linePrototype
 	local lineFrame = template:Clone()
-	lineFrame.Name = "Line" -- the clear loop and the 500-line cap find rows by this name
+	lineFrame.Name = "Line"
 
 	if promptHtml then
 		lineFrame.Prompt.Text = promptHtml
@@ -372,8 +359,6 @@ local function updateSuggestions(forceRebuild)
 
 	local data = terminalService:GetAutocompleteSuggestions(currentText)
 	if type(data) ~= "table" then
-		-- the bridge answers nil when it could not serialize the reply: do not
-		-- kill the client UI
 		closeSuggestions()
 		return
 	end
@@ -423,7 +408,6 @@ local function updateSuggestions(forceRebuild)
 		end
 		titleWidth = titleWidth + 30
 
-		-- Custom UI rendering for specific types
 		local argSpec = cmdInfo.Args[activeIndex]
 		if argSpec and data.ActiveArgType then
 			local types = string.split(string.gsub(data.ActiveArgType, "%s+", ""), "|")
@@ -440,12 +424,12 @@ local function updateSuggestions(forceRebuild)
 								inputBar:CaptureFocus()
 							end)
 						end,
-						function() -- keepFocus
+						function()
 							task.defer(function()
 								inputBar:CaptureFocus()
 							end)
 						end,
-						function(liveText) -- liveUpdate
+						function(liveText)
 							liveUpdateSuggestion(liveText)
 						end,
 						argSpec
@@ -467,7 +451,7 @@ local function updateSuggestions(forceRebuild)
 							visibleItems += 1
 						end
 
-						visibleItems += 1 -- CustomUI is an item
+						visibleItems += 1
 						if visibleItems > 1 then
 							uiHeight += (visibleItems - 1) * 2
 						end
@@ -633,8 +617,6 @@ local function toggleConsole()
 			mainFrame.CanvasPosition = Vector2.new(0, 99999999)
 		end)
 	else
-		-- otherwise the hidden input keeps focus and every key typed next goes
-		-- into the closed terminal
 		inputBar:ReleaseFocus()
 
 		closeSuggestions()
@@ -790,8 +772,6 @@ function Display.Mount(ts)
 		inputBar.Text = ""
 
 		if line == "" then
-			-- isVisible, as below: an empty line sent just before closing took
-			-- focus back in a hidden terminal
 			task.defer(function()
 				if isVisible then
 					inputBar:CaptureFocus()
@@ -837,8 +817,6 @@ function Display.Mount(ts)
 				autocompleteDropdown.Visible = false
 			end
 		elseif not expectedDropdownVisible and autocompleteDropdown.Visible then
-			-- written only when it changes: this ran on every frame of every
-			-- client, terminal closed
 			autocompleteDropdown.Visible = false
 		end
 	end)

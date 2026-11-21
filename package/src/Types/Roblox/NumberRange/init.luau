@@ -154,11 +154,10 @@ return {
 			Maps a number-range value to a 0..1 slider position.
 
 			@param value The value to inspect.
-
 			@return The slider position from 0 to 1.
 		]=]
 		local function getAlpha(value)
-			return math.clamp(value / 100, 0, 1) -- default range 0-100 for ui
+			return math.clamp(value / 100, 0, 1)
 		end
 
 		--[=[

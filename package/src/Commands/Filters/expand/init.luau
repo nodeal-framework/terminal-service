@@ -21,7 +21,6 @@ local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 	Parses a comma-separated list of tab stops.
 
 	@param spec The specification to parse.
-
 	@return The resulting list.
 ]=]
 local function tabStops(spec: string?): { number }

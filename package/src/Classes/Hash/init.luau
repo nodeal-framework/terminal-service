@@ -28,7 +28,6 @@ local Hash = {}
 	Serialises a 32-bit word in little-endian order.
 
 	@param value The value to convert.
-
 	@return The resulting text.
 ]=]
 local function wordLE(value: number): string
@@ -45,7 +44,6 @@ end
 	Serialises a 32-bit word in big-endian order.
 
 	@param value The value to convert.
-
 	@return The resulting text.
 ]=]
 local function wordBE(value: number): string
@@ -62,7 +60,6 @@ end
 
 	@param text The text to inspect.
 	@param position The position to inspect.
-
 	@return The resulting number.
 ]=]
 local function readLE(text: string, position: number): number
@@ -75,7 +72,6 @@ end
 
 	@param text The text to inspect.
 	@param position The position to inspect.
-
 	@return The resulting number.
 ]=]
 local function readBE(text: string, position: number): number
@@ -87,7 +83,6 @@ end
 	Formats a 32-bit word as big-endian hexadecimal.
 
 	@param value The value to convert.
-
 	@return The resulting text.
 ]=]
 local function hex32(value: number): string
@@ -98,7 +93,6 @@ end
 	Formats a 32-bit word as little-endian hexadecimal.
 
 	@param value The value to convert.
-
 	@return The resulting text.
 ]=]
 local function hex32LE(value: number): string
@@ -190,7 +184,6 @@ end
 	Computes the MD5 digest of a string.
 
 	@param input The input to process.
-
 	@return The resulting text.
 ]=]
 function Hash.md5(input: string): string
@@ -252,7 +245,6 @@ end
 	Expands one SHA-1 block into its message schedule.
 
 	@param block The statement block to parse.
-
 	@return The resulting list.
 ]=]
 local function sha1Schedule(block: string): { number }
@@ -270,7 +262,6 @@ end
 	Computes the SHA-1 digest of a string.
 
 	@param input The input to process.
-
 	@return The resulting text.
 ]=]
 function Hash.sha1(input: string): string
@@ -399,7 +390,6 @@ local SHA256_K = {
 	Computes the SHA-256 digest of a string.
 
 	@param input The input to process.
-
 	@return The resulting text.
 ]=]
 function Hash.sha256(input: string): string

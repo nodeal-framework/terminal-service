@@ -28,7 +28,6 @@ local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 	Splits an awk program into tokens.
 
 	@param program The awk program to run.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function tokenize(program: string): (any?, string?)
@@ -164,7 +163,6 @@ P.__index = P
 	Creates an awk parser over a token list.
 
 	@param tokens The token list to parse.
-
 	@return The new parser.
 ]=]
 function P.new(tokens)
@@ -195,7 +193,6 @@ end
 	Consumes the current token when it has the given value.
 
 	@param value The value to convert.
-
 	@return True when the condition holds.
 ]=]
 function P:matchValue(value: string): boolean
@@ -262,7 +259,6 @@ local RIGHT = {
 	Checks whether a token can begin an expression.
 
 	@param token The token to inspect.
-
 	@return True when the condition holds.
 ]=]
 local function startsExpression(token): boolean
@@ -290,7 +286,6 @@ end
 	Parses an expression at or above the given precedence.
 
 	@param minPrec The minimum precedence to accept.
-
 	@return The parsed expression node.
 ]=]
 function P:parseExpression(minPrec: number)
@@ -592,7 +587,6 @@ end
 	Applies awk truthiness rules.
 
 	@param value The value to convert.
-
 	@return True when the condition holds.
 ]=]
 local function truthy(value): boolean
@@ -609,7 +603,6 @@ end
 	Converts an awk value to a number.
 
 	@param value The value to convert.
-
 	@return The resulting number.
 ]=]
 local function toNumber(value): number
@@ -624,7 +617,6 @@ end
 	Converts an awk value to text.
 
 	@param value The value to convert.
-
 	@return The resulting text.
 ]=]
 local function toText(value): string
@@ -638,7 +630,6 @@ end
 	Checks whether a value looks numeric.
 
 	@param value The value to convert.
-
 	@return True when the condition holds.
 ]=]
 local function isNumeric(value): boolean
@@ -653,7 +644,6 @@ end
 
 	@param format The format string.
 	@param arguments The command arguments.
-
 	@return The resulting text.
 ]=]
 local function printfFormat(format: string, arguments: { any }): string
@@ -716,7 +706,6 @@ Interpreter.__index = Interpreter
 
 	@param program The awk program to run.
 	@param options The parsed options.
-
 	@return The new interpreter.
 ]=]
 function Interpreter.new(program, options)
@@ -761,7 +750,6 @@ end
 	Returns a cached compiled regular expression.
 
 	@param pattern The pattern to match.
-
 	@return The compiled regular expression.
 ]=]
 function Interpreter:Regex(pattern: string)
@@ -825,7 +813,6 @@ end
 	Reads a field by index.
 
 	@param index The position to start at.
-
 	@return The resulting text.
 ]=]
 function Interpreter:GetField(index: number): string
@@ -862,7 +849,6 @@ end
 	Reads an awk variable or built-in.
 
 	@param name The name to look up.
-
 	@return The variable value.
 ]=]
 function Interpreter:GetVar(name: string): any
@@ -938,7 +924,6 @@ end
 	Returns a setter for an assignable expression.
 
 	@param node The syntax tree node to evaluate.
-
 	@return A setter for the expression, or nil.
 ]=]
 local function lvalue(node)
@@ -964,7 +949,6 @@ end
 	Evaluates a rule pattern against the record.
 
 	@param node The syntax tree node to evaluate.
-
 	@return True when the rule matches.
 ]=]
 function Interpreter:PatternValue(node)
@@ -979,7 +963,6 @@ end
 	Evaluates an awk expression.
 
 	@param node The syntax tree node to evaluate.
-
 	@return The evaluated value.
 ]=]
 function Interpreter:Eval(node): any
@@ -1139,7 +1122,6 @@ end
 
 	@param name The name to look up.
 	@param arguments The command arguments.
-
 	@return The function result.
 ]=]
 function Interpreter:Call(name: string, arguments: { any }): any

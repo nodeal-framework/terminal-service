@@ -140,13 +140,19 @@ Luau Doc block directly above its signature, written in English.
 
 The summary is mandatory. Describe intent and edge cases, not syntax.
 
+Keep the tag lines contiguous: `@param`, `@return`, `@yields` and `@example` follow
+each other without blank lines between them. Only the summary is separated from
+the tags by one blank line.
+
 ---
 
 ## 4. Language and comments
 
 - **100% English.** Names, types, comments, docstrings and logs are English. No French
   terms in source files.
-- Comments explain **why**, not what. If the code already says it, delete the comment.
+- Source files contain only the license header, module doc blocks, function doc blocks
+  and the section markers below. Do not add ordinary `--` comments; fold any necessary
+  explanation into the function or module doc block.
 - Every module starts with a block comment explaining why the file exists and what it owns.
 - Section markers in the repository style are allowed and encouraged in large modules:
   `--// Services //--`, `--// Modules //--`, `--// Private //--`, `--// Public //--`.

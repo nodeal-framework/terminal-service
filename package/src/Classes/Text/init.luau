@@ -47,7 +47,6 @@ end
 	Joins lines with a newline.
 
 	@param lines The lines to process.
-
 	@return The resulting text.
 ]=]
 function Text.join(lines: { string }): string
@@ -104,7 +103,6 @@ end
 
 	@param index The position to start at.
 	@param ranges The ranges to test.
-
 	@return True when the condition holds.
 ]=]
 function Text.inRanges(index: number, ranges: { any }): boolean

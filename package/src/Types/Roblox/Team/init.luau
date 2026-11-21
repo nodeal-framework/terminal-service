@@ -21,7 +21,6 @@ local Teams = game:GetService("Teams")
 	Finds a team by case-insensitive name.
 
 	@param text The text to inspect.
-
 	@return The result, or nil.
 ]=]
 local function findTeam(text: string): Team?

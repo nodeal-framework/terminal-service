@@ -25,7 +25,6 @@ local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 	@param script The script text to parse.
 	@param index The position to start at.
 	@param delimiter The delimiter to use.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function readDelimited(script: string, index: number, delimiter: string): (string, number)
@@ -59,7 +58,6 @@ end
 
 	@param script The script text to parse.
 	@param index The position to start at.
-
 	@return The resulting number.
 ]=]
 local function skipSpaces(script: string, index: number): number
@@ -74,7 +72,6 @@ end
 
 	@param script The script text to parse.
 	@param index The position to start at.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function parseAddress(script: string, index: number): (any, number)
@@ -113,7 +110,6 @@ end
 	Parses a sed script into commands.
 
 	@param script The script text to parse.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function parseScript(script: string): (any?, string?)
@@ -214,7 +210,6 @@ local function parseScript(script: string): (any?, string?)
 			item.Label = label or ""
 			index += #(label or "")
 		elseif command == "{" or command == "}" then
-			-- blocks are accepted but not interpreted specially
 		elseif command == "r" or command == "w" then
 			return nil, `'{command}' needs a filesystem`
 		end
@@ -231,7 +226,6 @@ end
 	@param pattern The pattern to match.
 	@param ignoreCase Whether matching ignores case.
 	@param basic Whether to use basic regular expressions.
-
 	@return The compiled regular expression.
 ]=]
 local function regexFor(pattern: string, ignoreCase: boolean, basic: boolean): any
@@ -245,7 +239,6 @@ end
 	@param replacement The replacement text.
 	@param matched The already matched segments.
 	@param captures The capture table.
-
 	@return The resulting text.
 ]=]
 local function expandReplacement(replacement: string, matched: string, captures): string
@@ -302,7 +295,6 @@ end
 	@param replacement The replacement text.
 	@param global Whether to replace every match.
 	@param nth The field number to extract.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function replaceMatches(

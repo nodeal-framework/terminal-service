@@ -54,8 +54,7 @@ return {
 			ApplyToUniverse = true,
 		}
 
-		-- If it's a date timestamp, subtract current time to get duration
-		if duration > 1000000000 then -- Simple heuristic to detect unix timestamps vs seconds
+		if duration > 1000000000 then
 			duration = math.floor(duration - os.time())
 		end
 

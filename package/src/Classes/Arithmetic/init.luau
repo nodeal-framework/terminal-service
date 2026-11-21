@@ -98,7 +98,6 @@ local Arithmetic = {}
 	Splits an arithmetic expression into number, variable and operator tokens.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function tokenize(text: string): { { kind: string, value: string } }
@@ -211,7 +210,6 @@ Parser.__index = Parser
 	Creates a parser over a token list.
 
 	@param tokens The token list to parse.
-
 	@return The new parser.
 ]=]
 function Parser.new(tokens)
@@ -259,7 +257,6 @@ end
 	Parses an expression at or above the given precedence.
 
 	@param minPrec The minimum precedence to accept.
-
 	@return The result, or nil.
 ]=]
 function Parser:parseExpression(minPrec: number): Node?
@@ -380,7 +377,6 @@ end
 
 	@param a The first value.
 	@param b The second value.
-
 	@return The resulting number.
 ]=]
 local function trunc(a: number, b: number): number
@@ -398,7 +394,6 @@ end
 	Converts a value to a number, defaulting to zero.
 
 	@param value The value to convert.
-
 	@return The resulting number.
 ]=]
 local function toNumber(value: any): number
@@ -416,7 +411,6 @@ local Evaluator = {}
 
 	@param node The syntax tree node to evaluate.
 	@param shell The shell instance.
-
 	@return The resulting number.
 ]=]
 local function evalNode(node: Node, shell): number

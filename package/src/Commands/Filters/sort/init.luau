@@ -23,7 +23,6 @@ local Text = require(script.Parent.Parent.Parent.Parent.Classes.Text)
 
 	@param line The line to process.
 	@param delimiter The delimiter to use.
-
 	@return The resulting list.
 ]=]
 local function splitFields(line: string, delimiter: string?): { string }
@@ -41,7 +40,6 @@ end
 	Parses a number with an optional K, M or G suffix.
 
 	@param text The text to inspect.
-
 	@return The resulting number.
 ]=]
 local function humanNumber(text: string): number
@@ -120,7 +118,6 @@ return {
 			Normalises a line for sorting.
 
 			@param value The value to convert.
-
 			@return The resulting text.
 		]=]
 		local function normalized(value: string): string
@@ -140,7 +137,6 @@ return {
 			Returns the comparison key for a line.
 
 			@param line The line to process.
-
 			@return The resulting text.
 		]=]
 		local function keyOf(line: string): string

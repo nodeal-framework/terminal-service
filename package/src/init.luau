@@ -53,14 +53,10 @@ local _historyMax = 200
 local _shells = {}
 local _serverStart = os.clock()
 
--- What one line from a client may cost the server, checked before any of it runs.
-local MAX_LINE = 500 -- characters
-local MAX_OUTPUT = 16384 -- characters sent back or redirected
+local MAX_LINE = 500
+local MAX_OUTPUT = 16384
 
--- A command that declares no Permission is admin-only: forgetting the field
--- must not open it to every client.
 TerminalService.DefaultPermission = script:GetAttribute("DefaultPermission") or "Admin"
--- Printing into another player's console (`cmd > player`) is a broadcast.
 TerminalService.RedirectPermission = script:GetAttribute("RedirectPermission") or "Moderator"
 
 --// Helpers //--
@@ -69,7 +65,6 @@ TerminalService.RedirectPermission = script:GetAttribute("RedirectPermission") o
 
 	@param executor The player running the command.
 	@param permission The permission to check.
-
 	@return True when the condition holds.
 ]=]
 local function allowed(executor: Player?, permission: any): boolean
@@ -85,7 +80,6 @@ end
 	Truncates text to the output limit.
 
 	@param text The text to inspect.
-
 	@return The truncated text.
 ]=]
 local function cap(text: any): any
@@ -96,14 +90,11 @@ local function cap(text: any): any
 	return text
 end
 
--- What a player typed, fit for every reader. Nil when Roblox's filter does not
--- answer: nothing unfiltered goes out.
 --[=[
 	Filters text through Roblox's text service for one player.
 
 	@param from The player whose filter applies.
 	@param text The text to inspect.
-
 	@return The filtered text, or nil.
 ]=]
 local function filtered(from: Player?, text: any): any
@@ -122,13 +113,10 @@ local function filtered(from: Player?, text: any): any
 	return nil
 end
 
--- The terminal a command sees: what its player sends to others is filtered
--- first. Everything else is the service itself.
 --[=[
 	Builds the terminal facade a command sees, with filtered messaging.
 
 	@param executor The player running the command.
-
 	@return The terminal facade.
 ]=]
 local function terminalFor(executor: Player?): any
@@ -142,7 +130,6 @@ local function terminalFor(executor: Player?): any
 		Returns the filtered form of a message, cached per string.
 
 		@param message The message to show.
-
 		@return The filtered message.
 	]=]
 	local function clean(message: any): any
@@ -199,7 +186,6 @@ end
 
 	@param query The text to score against.
 	@param target The target of the operation.
-
 	@return The resulting number.
 ]=]
 function TerminalService.FuzzyMatch(query: string, target: string): number
@@ -393,8 +379,6 @@ function TerminalService:Execute(line: string, executor: Player?): (number, stri
 
 	local code, stdout, stderr = shell:RunLine(line)
 
-	-- The display renders one label per result: a final newline would draw an
-	-- empty line.
 	stdout = string.gsub(stdout or "", "\n$", "")
 	stderr = string.gsub(stderr or "", "\n$", "")
 
@@ -427,8 +411,6 @@ function TerminalService:GetUptime(): number
 	return os.clock() - _serverStart
 end
 
--- A colon: every caller writes Terminal:Broadcast(...), and the dot made the
--- service itself the message.
 --[=[
 	Sends a message to every player's terminal.
 
@@ -554,8 +536,6 @@ end
 --[=[
 	Returns autocomplete data for a given input line.
 ]=]
--- What a command takes, as the terminal's suggestions show it:
--- "<title> <body>".
 local function usageOf(command): string
 	local parts = {}
 	for _, argument in command.Args or {} do
@@ -564,15 +544,11 @@ local function usageOf(command): string
 	return table.concat(parts, " ")
 end
 
--- Autocomplete crosses BridgeService, which cannot serialize functions. A
--- command may declare a dynamic Type as a function: resolve it here, and send
--- only the fields the client UI reads.
 --[=[
 	Builds the argument metadata sent to the client for autocomplete.
 
 	@param arguments The command arguments.
 	@param rawArgs The raw argument tokens.
-
 	@return The resulting list.
 ]=]
 local function clientArgs(arguments, rawArgs): { any }
@@ -588,8 +564,6 @@ local function clientArgs(arguments, rawArgs): { any }
 			argType = "string"
 		end
 
-		-- Copy the fields the command declared (custom type options included),
-		-- minus functions.
 		local sanitized = {}
 		for key, value in argument do
 			if type(value) ~= "function" then
@@ -610,7 +584,6 @@ end
 
 	@param line The line to process.
 	@param player The player to act on.
-
 	@return The suggestion payload.
 ]=]
 function TerminalService:GetAutocompleteSuggestions(line: string, player: Player?): any
@@ -643,7 +616,6 @@ function TerminalService:GetAutocompleteSuggestions(line: string, player: Player
 		Checks whether a token is an output redirection.
 
 		@param t The token to inspect.
-
 		@return True when the condition holds.
 	]=]
 	local function isRedirectOperator(t: string): boolean
@@ -841,7 +813,6 @@ end
 function TerminalService.Init()
 	TerminalService.Network = Network
 
-	-- Register Types (Both Client and Server)
 	for _, typeFolder in script.Types:GetChildren() do
 		for _, file in typeFolder:GetChildren() do
 			if file:IsA("ModuleScript") then
@@ -854,12 +825,8 @@ function TerminalService.Init()
 	if RunService:IsServer() then
 		TerminalService.AuthorizationService = game:GetService("AuthorizationService")
 
-		-- IMPORTANT: Force creation of the RemoteEvent on the server so the
-		-- client can hook it early! Without this, the very first Network:Fire
-		-- will drop the packet because the client hasn't had time to hook it yet.
 		Network:OnEvent(function() end)
 
-		-- Register Commands
 		--[=[
 			Loads every command module under a folder.
 
@@ -884,15 +851,12 @@ function TerminalService.Init()
 		end
 		loadCommands(script.Commands)
 
-		-- Network Hook
 		Network:OnInvoke(function(header, action, ...)
 			local player = header.Player
 			if not player then
 				return
 			end
 
-			-- bounded before lexing: a client must not make the server pay for
-			-- an arbitrary line
 			if action == "Execute" then
 				local line = ...
 				if type(line) ~= "string" then
@@ -963,7 +927,6 @@ game:RegisterDecorator(
 					Converts a parsed type node back into its source text.
 
 					@param t The token to inspect.
-
 					@return The type as source text.
 				]=]
 					local function parseType(t)

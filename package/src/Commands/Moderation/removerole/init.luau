@@ -42,7 +42,6 @@ return {
 	Run = function(context, target: Player, role: any, temp: boolean)
 		local auth = context.Terminal.AuthorizationService
 
-		-- Nobody takes away more than they hold. No executor means the server itself.
 		local executor = context.Executor
 		local highest = executor and auth:GetHighestRoleAsync(executor)
 

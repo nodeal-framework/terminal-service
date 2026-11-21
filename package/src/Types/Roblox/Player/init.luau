@@ -21,7 +21,6 @@ local Players = game:GetService("Players")
 	Returns players whose name or display name starts with the text.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function getMatchingPlayers(text: string): { Player }

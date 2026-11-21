@@ -28,7 +28,6 @@ CommandContext.__index = CommandContext
 	@param input The input to process.
 	@param terminalService The terminal service.
 	@param shell The shell instance.
-
 	@return The new context.
 ]=]
 function CommandContext.new(

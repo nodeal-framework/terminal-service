@@ -36,7 +36,6 @@ type Segment = {
 	Concatenates the text of word parts.
 
 	@param parts The parts to combine.
-
 	@return The resulting text.
 ]=]
 local function concatParts(parts): string
@@ -54,7 +53,6 @@ end
 	@param startIdx The index to start scanning from.
 	@param openChar The opening delimiter.
 	@param closeChar The closing delimiter.
-
 	@return The resulting number, or nil.
 ]=]
 local function findMatching(
@@ -111,7 +109,6 @@ end
 
 	@param text The text to inspect.
 	@param separator The separator to split on.
-
 	@return The resulting list.
 ]=]
 local function splitTopLevel(text: string, separator: string): { string }
@@ -175,7 +172,6 @@ end
 
 	@param text The text to inspect.
 	@param startIdx The index to start scanning from.
-
 	@return The resulting number, or nil.
 ]=]
 local function findBrace(text: string, startIdx: number): number?
@@ -203,7 +199,6 @@ end
 	Expands one brace expression into alternatives.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function expandBraceText(text: string): { string }
@@ -331,7 +326,6 @@ end
 	Applies brace expansion across word parts.
 
 	@param parts The parts to combine.
-
 	@return The resulting list.
 ]=]
 local function braceExpandParts(parts): { { any } }
@@ -383,7 +377,6 @@ end
 	Concatenates expanded segments without field splitting.
 
 	@param segments The expansion segments.
-
 	@return The resulting text.
 ]=]
 local function segmentsToString(segments: { Segment }): string
@@ -400,7 +393,6 @@ end
 	Returns the first character of IFS.
 
 	@param shell The shell instance.
-
 	@return The resulting text.
 ]=]
 local function firstIfs(shell): string
@@ -416,7 +408,6 @@ end
 
 	@param shell The shell instance.
 	@param skipEmpty Whether to drop empty fields.
-
 	@return The resulting text.
 ]=]
 local function joinPositional(shell, skipEmpty: boolean): string
@@ -434,7 +425,6 @@ end
 
 	@param shell The shell instance.
 	@param name The name to look up.
-
 	@return The resulting list.
 ]=]
 local function arrayValues(shell, name: string): { string }?
@@ -455,7 +445,6 @@ end
 
 	@param shell The shell instance.
 	@param subscript The array subscript.
-
 	@return The resulting number.
 ]=]
 local function resolveSubscript(shell, subscript: string): number
@@ -477,7 +466,6 @@ end
 	@param shell The shell instance.
 	@param name The name to look up.
 	@param subscript The array subscript.
-
 	@return The resulting text, or nil.
 ]=]
 local function arrayElement(shell, name: string, subscript: string): string?
@@ -500,7 +488,6 @@ end
 
 	@param shell The shell instance.
 	@param name The name to look up.
-
 	@return The resulting text, or nil.
 ]=]
 local function specialValue(shell, name: string): string?
@@ -556,7 +543,6 @@ end
 	@param shell The shell instance.
 	@param name The name to look up.
 	@param subscript The array subscript.
-
 	@return True when the condition holds.
 ]=]
 local function isUnset(shell, name: string, subscript: string?): boolean
@@ -572,7 +558,6 @@ end
 	@param shell The shell instance.
 	@param name The name to look up.
 	@param subscript The array subscript.
-
 	@return True when the condition holds.
 ]=]
 local function isEmpty(shell, name: string, subscript: string?): boolean
@@ -582,14 +567,12 @@ local function isEmpty(shell, name: string, subscript: string?): boolean
 	return value == nil or value == ""
 end
 
--- Resolves the body of `${name<op>word}`.
 --[=[
 	Expands a `${name<op>word}` parameter expression.
 
 	@param shell The shell instance.
 	@param content The text to measure.
 	@param quoted Whether the delimiter is quoted.
-
 	@return The resulting text.
 ]=]
 local function parameterExpansion(shell, content: string, quoted: boolean): string
@@ -661,8 +644,6 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		return specialValue(shell, name)
 	end
 
-	-- ${var:-word}, ${var:=word}, ${var:+word}, ${var:?word} and the
-	-- unset-only forms
 	local op, word = string.match(rest, "^(%:?[-=+?])(.*)$")
 	if op then
 		local useEmpty = string.sub(op, 1, 1) == ":"
@@ -699,7 +680,6 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		return current() or ""
 	end
 
-	-- ${var#pattern}, ${var##pattern}, ${var%pattern}, ${var%%pattern}
 	local trimOp, pattern = nil, ""
 	if string.sub(rest, 1, 2) == "##" then
 		trimOp, pattern = "##", string.sub(rest, 3)
@@ -761,7 +741,6 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		end
 	end
 
-	-- ${var/pat/repl}, ${var//pat/repl}, ${var/#pat/repl}, ${var/%pat/repl}
 	if string.sub(rest, 1, 1) == "/" then
 		local body = string.sub(rest, 2)
 		local global = false
@@ -814,7 +793,6 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		return replaced
 	end
 
-	-- ${var:offset[:length]}
 	local offsetText, lengthText = string.match(rest, "^: *(-?%d+) *:? *(-?%d*)%s*$")
 	if offsetText then
 		local value = current() or ""
@@ -832,7 +810,6 @@ local function parameterExpansion(shell, content: string, quoted: boolean): stri
 		return string.sub(value, offset + 1, offset + length)
 	end
 
-	-- ${var^}, ${var^^}, ${var,}, ${var,,}
 	local caseOp, casePattern = nil, ""
 	if string.sub(rest, 1, 2) == "^^" then
 		caseOp, casePattern = "^^", string.sub(rest, 3)
@@ -969,7 +946,6 @@ local function expandText(text: string, quote: number, shell, segments: { Segmen
 
 				i = close + 1
 			elseif n == "'" then
-				-- handled by the lexer, but keep a safe fallback
 				flush()
 				i += 2
 			else
@@ -1066,7 +1042,6 @@ end
 
 	@param segments The expansion segments.
 	@param ifs The current IFS value.
-
 	@return The resulting list.
 ]=]
 local function splitFields(segments: { Segment }, ifs: string): { string }
@@ -1221,7 +1196,6 @@ end
 
 	@param text The text to inspect.
 	@param shell The shell instance.
-
 	@return The resulting text.
 ]=]
 function Expander.expandStringSingle(text: string, shell): string

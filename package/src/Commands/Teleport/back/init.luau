@@ -17,7 +17,7 @@
 
 return {
 	Name = "back",
-	Permission = "Moderator", -- moves any player, like bring and goto
+	Permission = "Moderator",
 	Description = "Returns to the most recent saved position before a teleport (stack of last 10 "
 		.. "positions)",
 	Args = {

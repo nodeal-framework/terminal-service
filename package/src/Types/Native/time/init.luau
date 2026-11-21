@@ -172,7 +172,6 @@ return {
 			return timeStr
 		end
 
-		-- Try to parse currentText to set initial position
 		local h, m = string.match(currentText, "^(%d%d?):(%d%d?)$")
 		if not (h and m) then
 			h = string.match(currentText, "^(%d%d?):?$")

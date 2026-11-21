@@ -52,7 +52,6 @@ Parser.__index = Parser
 
 	@param pattern The pattern to match.
 	@param ignoreCase Whether matching ignores case.
-
 	@return The new parser.
 ]=]
 function Parser.new(pattern: string, ignoreCase: boolean)
@@ -68,7 +67,6 @@ end
 	Returns a pattern character without consuming it.
 
 	@param offset The offset from the current position.
-
 	@return The resulting text.
 ]=]
 function Parser:peek(offset: number?): string
@@ -132,7 +130,6 @@ end
 	Parses a `{m}`, `{m,}` or `{m,n}` repetition bound.
 
 	@param parser The parser to read from.
-
 	@return The repetition bounds, or nil.
 ]=]
 local function parseBounds(parser: Parser)
@@ -226,7 +223,6 @@ end
 
 	@param kind The kind to classify.
 	@param value The value to convert.
-
 	@return The bracket-expression item.
 ]=]
 local function classItem(kind: string, value)
@@ -459,7 +455,6 @@ end
 
 	@param text The text to inspect.
 	@param pos The text position.
-
 	@return The resulting text.
 ]=]
 local function charAt(text: string, pos: number): string
@@ -470,7 +465,6 @@ end
 	Checks whether a character is a word character.
 
 	@param c The character to test.
-
 	@return True when the condition holds.
 ]=]
 local function isWordChar(c: string): boolean
@@ -483,7 +477,6 @@ end
 	@param a The first value.
 	@param b The second value.
 	@param ignoreCase Whether matching ignores case.
-
 	@return True when the condition holds.
 ]=]
 local function charEqual(a: string, b: string, ignoreCase: boolean): boolean
@@ -498,7 +491,6 @@ end
 
 	@param name The name to look up.
 	@param c The character to test.
-
 	@return True when the condition holds.
 ]=]
 local function posixMatch(name: string, c: string): boolean
@@ -558,7 +550,6 @@ end
 	@param item The class item to test.
 	@param c The character to test.
 	@param ignoreCase Whether matching ignores case.
-
 	@return True when the condition holds.
 ]=]
 local function classItemMatches(item, c: string, ignoreCase: boolean): boolean
@@ -600,7 +591,6 @@ end
 	@param node The syntax tree node to evaluate.
 	@param c The character to test.
 	@param ignoreCase Whether matching ignores case.
-
 	@return True when the condition holds.
 ]=]
 local function classMatches(node, c: string, ignoreCase: boolean): boolean
@@ -626,7 +616,6 @@ end
 	Copies a capture table.
 
 	@param captures The capture table.
-
 	@return A copy of the capture table.
 ]=]
 local function copyCaptures(captures)
@@ -644,7 +633,6 @@ end
 	@param pos The text position.
 	@param value The value to convert.
 	@param ignoreCase Whether matching ignores case.
-
 	@return True when the condition holds.
 ]=]
 local function stringStartsWith(
@@ -672,7 +660,6 @@ end
 	@param captures The capture table.
 	@param emit The callback receiving each match.
 	@param context The command context.
-
 	@return True when a match was found.
 ]=]
 local function match(node, text: string, pos: number, captures, emit, context)
@@ -767,7 +754,6 @@ local function match(node, text: string, pos: number, captures, emit, context)
 			@param count The count to apply.
 			@param at The current text position.
 			@param caps The capture table to extend.
-
 			@return True when a repetition matched.
 		]=]
 		local function repeatFrom(count: number, at: number, caps)
@@ -908,7 +894,6 @@ end
 	Checks whether the pattern matches anywhere in the text.
 
 	@param text The text to inspect.
-
 	@return True when the condition holds.
 ]=]
 function Regex:Test(text: string): boolean

@@ -51,7 +51,6 @@ local ESCAPES = {
 	Parses a `tr` character set.
 
 	@param spec The specification to parse.
-
 	@return The resulting list.
 ]=]
 local function parseSet(spec: string): { string }
@@ -121,7 +120,6 @@ end
 	Builds a lookup set from characters.
 
 	@param chars The characters to map.
-
 	@return The resulting list.
 ]=]
 local function setOf(chars: { string }): { [string]: boolean }

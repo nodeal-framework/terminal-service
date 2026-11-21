@@ -59,7 +59,6 @@ return {
 			Returns the comparison key for a line.
 
 			@param line The line to process.
-
 			@return The resulting text.
 		]=]
 		local function keyOf(line: string): string

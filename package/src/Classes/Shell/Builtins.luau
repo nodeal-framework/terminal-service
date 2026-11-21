@@ -29,7 +29,6 @@ local Builtins = {}
 	Builds a successful builtin result.
 
 	@param text The standard output text.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function ok(text: string?): (number, string, string)
@@ -41,7 +40,6 @@ end
 
 	@param message The error message.
 	@param code The exit status.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function fail(message: string, code: number?): (number, string, string)
@@ -62,7 +60,6 @@ end
 	Quotes a value for safe reuse in shell input.
 
 	@param value The value to quote.
-
 	@return The resulting text.
 ]=]
 local function shellQuote(value: string): string
@@ -73,7 +70,6 @@ end
 	Checks whether a name is a valid shell identifier.
 
 	@param name The name to look up.
-
 	@return True when the condition holds.
 ]=]
 local function isIdentifier(name: string): boolean
@@ -86,7 +82,6 @@ end
 	Expands backslash escapes in `echo -e` text.
 
 	@param text The text to inspect.
-
 	@return The resulting text.
 ]=]
 local function interpretEscapes(text: string): string
@@ -166,7 +161,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinEcho(shell, arguments, stdin)
@@ -225,7 +219,6 @@ end
 	@param value The value to convert.
 	@param base The numeric base.
 	@param upper Whether to use uppercase digits.
-
 	@return The resulting text.
 ]=]
 local function toBase(value: number, base: number, upper: boolean): string
@@ -250,7 +243,6 @@ end
 	@param width The target width.
 	@param flags The formatting flags.
 	@param negative Whether the number is negative.
-
 	@return The resulting text.
 ]=]
 local function padNumber(text: string, width: number, flags: string, negative: boolean): string
@@ -283,7 +275,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinPrintf(shell, arguments, stdin)
@@ -321,7 +312,6 @@ local function builtinPrintf(shell, arguments, stdin)
 
 		@param fmt The conversion specification.
 		@param valueIndex The printf argument cursor.
-
 		@return The resulting text.
 	]=]
 	local function formatOne(fmt: string, valueIndex: any): string
@@ -492,7 +482,6 @@ local function builtinPrintf(shell, arguments, stdin)
 					local success, text = pcall(string.format, spec, number)
 					table.insert(out, if success then text else tostring(number))
 				elseif conversion == "n" then
-					-- ignore
 				else
 					table.insert(out, "%" .. conversion)
 				end
@@ -538,7 +527,6 @@ end
 	@param op The operator to apply.
 	@param value The value to convert.
 	@param shell The shell instance.
-
 	@return True when the condition holds.
 ]=]
 local function testUnary(op: string, value: string, shell): boolean?
@@ -583,7 +571,6 @@ local function testUnary(op: string, value: string, shell): boolean?
 		or op == "-G"
 		or op == "-N"
 	then
-		-- no filesystem: everything but -e/-f/-d is false, and those are false too
 		return false
 	end
 	return nil
@@ -595,7 +582,6 @@ end
 	@param left The left operand.
 	@param op The operator to apply.
 	@param right The right operand.
-
 	@return True when the condition holds.
 ]=]
 local function testBinary(left: string, op: string, right: string): boolean?
@@ -641,7 +627,6 @@ end
 	@param arguments The command arguments.
 	@param shell The shell instance.
 	@param patternMode Whether the operand is a pattern.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function evalTest(arguments, shell, patternMode: boolean): (boolean, string?)
@@ -692,7 +677,6 @@ local function evalTest(arguments, shell, patternMode: boolean): (boolean, strin
 			return value
 		end
 
-		-- unary
 		local unary = testUnary(token, arguments[position + 1] or "", shell)
 		if unary ~= nil then
 			advance()
@@ -706,7 +690,6 @@ local function evalTest(arguments, shell, patternMode: boolean): (boolean, strin
 			return left ~= ""
 		end
 
-		-- binary
 		if patternMode and (op == "==" or op == "=") then
 			advance()
 			local right = advance()
@@ -821,7 +804,6 @@ end
 	@param stdin The piped standard input.
 	@param bracket Whether this is the `[` form.
 	@param extended Whether extended test syntax is enabled.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinTest(shell, arguments, stdin, bracket: boolean?, extended: boolean?)
@@ -838,7 +820,6 @@ local function builtinTest(shell, arguments, stdin, bracket: boolean?, extended:
 	end
 
 	if extended then
-		-- [[ ... ]] supports && and || as words
 		for i, value in list do
 			if value == "&&" then
 				list[i] = "-a"
@@ -870,7 +851,6 @@ end
 	@param shell The shell instance.
 	@param name The name to look up.
 	@param exportedOnly Whether to skip unexported variables.
-
 	@return The resulting text, or nil.
 ]=]
 local function printVar(shell, name: string, exportedOnly: boolean?): string?
@@ -890,7 +870,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinExport(shell, arguments, stdin)
@@ -955,7 +934,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinUnset(shell, arguments, stdin)
@@ -1013,7 +991,6 @@ local OPTION_NAMES = {
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinSet(shell, arguments, stdin)
@@ -1081,7 +1058,6 @@ local function builtinSet(shell, arguments, stdin)
 				if map[c] then
 					shell.Options[map[c]] = enable
 				elseif c == "o" then
-					-- handled above with a separate word
 				else
 					return fail(`set: -{c}: invalid option`, 2)
 				end
@@ -1109,7 +1085,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinDeclare(shell, arguments, stdin)
@@ -1212,7 +1187,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinAlias(shell, arguments, stdin)
@@ -1261,7 +1235,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinUnalias(shell, arguments, stdin)
@@ -1283,7 +1256,6 @@ end
 
 	@param shell The shell instance.
 	@param name The name to look up.
-
 	@return The resulting text.
 ]=]
 local function describe(shell, name: string): string
@@ -1304,7 +1276,6 @@ end
 
 	@param shell The shell instance.
 	@param name The name to look up.
-
 	@return The resulting text, or nil.
 ]=]
 local function typeKind(shell, name: string): string?
@@ -1329,7 +1300,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinType(shell, arguments, stdin)
@@ -1343,7 +1313,6 @@ local function builtinType(shell, arguments, stdin)
 		elseif argument == "-a" then
 			all = true
 		elseif argument == "-p" or argument == "-P" then
-			-- no PATH lookup
 		elseif string.sub(argument, 1, 1) ~= "-" then
 			table.insert(names, argument)
 		end
@@ -1375,7 +1344,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinCommand(shell, arguments, stdin)
@@ -1432,7 +1400,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinBuiltin(shell, arguments, stdin)
@@ -1459,7 +1426,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinExit(shell, arguments, stdin)
@@ -1476,7 +1442,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinReturn(shell, arguments, stdin)
@@ -1491,7 +1456,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinBreak(shell, arguments, stdin)
@@ -1505,7 +1469,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinContinue(shell, arguments, stdin)
@@ -1519,7 +1482,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinShift(shell, arguments, stdin)
@@ -1544,7 +1506,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinEval(shell, arguments, stdin)
@@ -1559,7 +1520,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinSource(shell, arguments, stdin)
@@ -1577,7 +1537,6 @@ local function builtinSource(shell, arguments, stdin)
 	end
 
 	if script == nil then
-		-- Allow `source 'echo hi'` because there is no filesystem to read from.
 		if string.find(name, "[%s;|&]") then
 			script = name
 		else
@@ -1617,7 +1576,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinExec(shell, arguments, stdin)
@@ -1648,7 +1606,6 @@ local DATE_FORMATS = {
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinDate(shell, arguments, stdin)
@@ -1688,7 +1645,6 @@ local function builtinDate(shell, arguments, stdin)
 
 	local stamp = os.time()
 	if dateString then
-		-- support @epoch and the common YYYY-MM-DD[ HH:MM[:SS]] form
 		local epoch = string.match(dateString, "^@(%d+)$")
 		if epoch then
 			stamp = tonumber(epoch)
@@ -1724,7 +1680,6 @@ local function builtinDate(shell, arguments, stdin)
 		@param text The text to inspect.
 		@param needle The literal substring to find.
 		@param replacement The replacement text.
-
 		@return The resulting text.
 	]=]
 	local function replacePlain(text: string, needle: string, replacement: string): string
@@ -1759,7 +1714,6 @@ end
 	Parses a duration such as `2h30m` into seconds.
 
 	@param text The text to inspect.
-
 	@return The resulting number, or nil.
 ]=]
 local function parseDuration(text: string): number?
@@ -1791,7 +1745,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinSleep(shell, arguments, stdin)
@@ -1823,7 +1776,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinSeq(shell, arguments, stdin)
@@ -1916,7 +1868,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinYes(shell, arguments, stdin)
@@ -1938,7 +1889,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinTee(shell, arguments, stdin)
@@ -1965,7 +1915,6 @@ end
 	Splits NUL-delimited input into fields.
 
 	@param text The text to inspect.
-
 	@return The resulting list.
 ]=]
 local function splitNul(text: string): { string }
@@ -1987,7 +1936,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinXargs(shell, arguments, stdin)
@@ -2061,7 +2009,6 @@ local function builtinXargs(shell, arguments, stdin)
 		Runs one `xargs` batch.
 
 		@param batch The arguments to pass to one invocation.
-
 		@return The exit status, standard output and standard error.
 	]=]
 	local function run(batch: { string })
@@ -2136,7 +2083,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinJobs(shell, arguments, stdin)
@@ -2156,7 +2102,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinWait(shell, arguments, stdin)
@@ -2180,7 +2125,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinDisown(shell, arguments, stdin)
@@ -2195,7 +2139,6 @@ end
 
 	@param shell The shell instance.
 	@param arguments The command arguments.
-
 	@return The matching job, or nil.
 ]=]
 local function findJob(shell, arguments)
@@ -2214,7 +2157,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinFg(shell, arguments, stdin)
@@ -2234,7 +2176,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinBg(shell, arguments, stdin)
@@ -2256,7 +2197,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinHistory(shell, arguments, stdin)
@@ -2289,7 +2229,6 @@ end
 
 	@param line The line to process.
 	@param ifs The current IFS value.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function splitReadFields(line: string, ifs: string): ({ string }, { number })
@@ -2307,7 +2246,6 @@ local function splitReadFields(line: string, ifs: string): ({ string }, { number
 		Checks whether a character belongs to IFS.
 
 		@param c The character to test.
-
 		@return True when the condition holds.
 	]=]
 	local function isIfs(c: string): boolean
@@ -2318,7 +2256,6 @@ local function splitReadFields(line: string, ifs: string): ({ string }, { number
 		Checks whether a character is IFS whitespace.
 
 		@param c The character to test.
-
 		@return True when the condition holds.
 	]=]
 	local function isIfsWhite(c: string): boolean
@@ -2361,7 +2298,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinRead(shell, arguments, stdin)
@@ -2463,7 +2399,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinMapfile(shell, arguments, stdin)
@@ -2509,7 +2444,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinEnv(shell, arguments, stdin)
@@ -2581,7 +2515,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinPwd(shell, arguments, stdin)
@@ -2594,7 +2527,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinCd(shell, arguments, stdin)
@@ -2607,7 +2539,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinLet(shell, arguments, stdin)
@@ -2634,7 +2565,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinCat(shell, arguments, stdin)
@@ -2650,7 +2580,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinBasename(shell, arguments, stdin)
@@ -2683,7 +2612,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinDirname(shell, arguments, stdin)
@@ -2709,7 +2637,6 @@ local BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
 
 	@param input The input to process.
 	@param wrap The line width, or nil for no wrapping.
-
 	@return The resulting text.
 ]=]
 local function base64Encode(input: string, wrap: number?): string
@@ -2750,7 +2677,6 @@ end
 	Decodes Base64 into bytes.
 
 	@param input The input to process.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function base64Decode(input: string): (string?, string?)
@@ -2803,7 +2729,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinBase64(shell, arguments, stdin)
@@ -2821,7 +2746,6 @@ local function builtinBase64(shell, arguments, stdin)
 		elseif string.sub(argument, 1, 2) == "-w" then
 			wrap = tonumber(string.sub(argument, 3)) or 76
 		elseif argument == "-i" or argument == "--ignore-garbage" then
-			-- whitespace is already ignored on decode
 		elseif argument == "--" then
 			i += 1
 			break
@@ -2852,7 +2776,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinLocal(shell, arguments, stdin)
@@ -2862,7 +2785,6 @@ local function builtinLocal(shell, arguments, stdin)
 
 	for _, argument in arguments do
 		if string.sub(argument, 1, 1) == "-" then
-			-- -r, -x, -a, -i, -n are accepted but have no separate storage here
 			continue
 		end
 
@@ -2889,7 +2811,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinReadonly(shell, arguments, stdin)
@@ -2912,7 +2833,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinShopt(shell, arguments, stdin)
@@ -2928,7 +2848,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinHash(shell, arguments, stdin)
@@ -2941,7 +2860,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinTrap(shell, arguments, stdin)
@@ -2993,7 +2911,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinUmask(shell, arguments, stdin)
@@ -3006,7 +2923,6 @@ end
 	@param shell The shell instance.
 	@param arguments The command arguments.
 	@param stdin The piped standard input.
-
 	@return The exit status, standard output and standard error.
 ]=]
 local function builtinUlimit(shell, arguments, stdin)
@@ -3022,7 +2938,6 @@ end
 	@param aliases The aliases to register.
 	@param description The description to show.
 	@param arguments The command arguments.
-
 	@return The builtin metadata table.
 ]=]
 local function describeBuiltin(name, aliases, description, arguments)
@@ -3441,8 +3356,6 @@ for _, definition in definitions do
 	end
 end
 
--- Aliases registered as their own entries ("." for source) must resolve to the
--- same builtin.
 Builtins["."] = Builtins["source"]
 
 return Builtins

@@ -38,7 +38,6 @@ local CLASSES: { [string]: string } = {
 	Escapes a character so Lua patterns treat it literally.
 
 	@param c The character to test.
-
 	@return The resulting text.
 ]=]
 local function escapeLua(c: string): string
@@ -52,7 +51,6 @@ end
 	Escapes a character inside a Lua pattern set.
 
 	@param c The character to test.
-
 	@return The resulting text.
 ]=]
 local function escapeSet(c: string): string

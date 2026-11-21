@@ -26,7 +26,6 @@ local Getopt = {}
 	Indexes a short option specification.
 
 	@param spec The specification to parse.
-
 	@return The short option index.
 ]=]
 local function buildShort(spec: string)
@@ -55,7 +54,6 @@ end
 	@param arguments The command arguments.
 	@param shortSpec The short option specification.
 	@param longSpec The long option table.
-
 	@return The exit status, standard output and standard error.
 ]=]
 function Getopt.parse(
@@ -117,7 +115,6 @@ function Getopt.parse(
 				local c = string.sub(body, j, j)
 
 				if not shortAllowed[c] then
-					-- a negative number operand, not an option
 					if j == 1 and string.match(body, "^%d+$") then
 						break
 					end

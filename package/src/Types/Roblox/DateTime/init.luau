@@ -37,11 +37,9 @@ end
 
 	@param month The month to render.
 	@param year The year to render.
-
 	@return The weekday of the first day.
 ]=]
 local function getFirstDayOfWeek(month: number, year: number)
-	-- Zeller's congruence
 	local q = 1
 	local m = month
 	local y = year
@@ -53,7 +51,6 @@ local function getFirstDayOfWeek(month: number, year: number)
 	local j = math.floor(y / 100)
 	local h = (q + math.floor(13 * (m + 1) / 5) + k + math.floor(k / 4) + math.floor(j / 4) - 2 * j)
 		% 7
-	-- h is 0=Sat, 1=Sun, 2=Mon... We want 1=Mon, 7=Sun
 	local result = ((h + 5) % 7) + 1
 	return result
 end
@@ -206,7 +203,6 @@ return {
 			local firstDay = getFirstDayOfWeek(curMonth, curYear)
 			local daysInMonth = getDaysInMonth(curMonth, curYear)
 
-			-- empty spaces before 1st
 			for i = 1, firstDay - 1 do
 				local empty = Instance.new("Frame")
 				empty.BackgroundTransparency = 1

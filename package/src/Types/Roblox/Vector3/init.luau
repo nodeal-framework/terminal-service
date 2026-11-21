@@ -148,7 +148,6 @@ return {
 			Maps a coordinate from -100..100 to 0..1.
 
 			@param value The value to inspect.
-
 			@return The slider position from 0 to 1.
 		]=]
 		local function getGridPos(value)
